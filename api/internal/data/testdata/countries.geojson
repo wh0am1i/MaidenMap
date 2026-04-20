@@ -1,0 +1,13 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": { "iso_a2": "XX", "name_en": "Testland" },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[[0, 0], [10, 0], [10, 10], [0, 10], [0, 0]]]
+      }
+    }
+  ]
+}
