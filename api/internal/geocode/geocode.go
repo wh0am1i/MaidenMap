@@ -6,6 +6,7 @@ import "github.com/paulmach/orb/geojson"
 type Geocoder struct {
 	Countries       *geojson.FeatureCollection
 	CountriesByCode map[string]Country // optional; used as fallback when polygon lookup misses
+	DataV           *DataVIndex        // optional; polygon-accurate admin hierarchy for CN family
 	KDTree          *KDTree
 	Admin1          map[string]AdminEntry
 	Admin2          map[string]AdminEntry
@@ -18,7 +19,11 @@ type Result struct {
 	Admin2     AdminEntry
 	CityName   string
 	CityNameZh string
+	UsedDataV  bool // true when admin1/admin2 came from the DataV polygon index
 }
+
+// cnFamily are the ISO codes where DataV overrides GeoNames admin.
+var cnFamily = map[string]bool{"CN": true, "HK": true, "MO": true, "TW": true}
 
 // Lookup performs country + admin + nearest-city lookup.
 //
@@ -27,6 +32,11 @@ type Result struct {
 //  2. If that misses but the nearest city has a CountryCode present in
 //     CountriesByCode, use that. Handles coastal / offshore grid-cell
 //     centers that fall into ocean just outside a country's coastline.
+//
+// Admin resolution for CN / HK / MO / TW uses the DataV polygon index when
+// available — it's authoritative for Chinese admin boundaries, unlike the
+// nearest-city approach which mis-assigns grid cells that straddle district
+// borders. Everywhere else uses GeoNames nearest-city admin codes.
 func (g *Geocoder) Lookup(lat, lon float64) Result {
 	var res Result
 	if c, ok := LookupCountry(g.Countries, lat, lon); ok {
@@ -44,6 +54,21 @@ func (g *Geocoder) Lookup(lat, lon float64) Result {
 			if c, ok := g.CountriesByCode[city.CountryCode]; ok {
 				res.Country = &c
 			}
+		}
+	}
+
+	if res.Country != nil && cnFamily[res.Country.Code] && g.DataV != nil {
+		if dv, ok := g.DataV.Lookup(lat, lon); ok {
+			res.Admin1 = AdminEntry{Zh: dv.Province, En: ProvinceEn(dv.Province)}
+			switch {
+			case dv.District != "":
+				res.Admin2 = AdminEntry{Zh: dv.District}
+			case dv.City != "":
+				res.Admin2 = AdminEntry{Zh: dv.City}
+			default:
+				res.Admin2 = AdminEntry{}
+			}
+			res.UsedDataV = true
 		}
 	}
 	return res

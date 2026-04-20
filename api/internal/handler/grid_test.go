@@ -151,6 +151,27 @@ func TestApplyChinaSARTransformHongKong(t *testing.T) {
 	assert.Equal(t, "观塘", resp.City.Zh)
 }
 
+func TestApplyChinaSARTransformHongKongUsingDataV(t *testing.T) {
+	// When DataV populated admin fields, admin1 already carries the SAR name
+	// and admin2 the district — the handler should only rewrite country and
+	// leave the hierarchy alone (no swap).
+	resp := gridResponse{
+		Country: &countryResp{
+			Code: "HK",
+			Name: biName{En: "Hong Kong", Zh: "香港"},
+		},
+		Admin1:    biName{En: "Hong Kong Special Administrative Region", Zh: "香港特别行政区"},
+		Admin2:    biName{En: "", Zh: "观塘区"},
+		City:      biName{En: "Kwun Tong", Zh: "观塘"},
+		usedDataV: true,
+	}
+	applyChinaSARTransform(&resp)
+
+	assert.Equal(t, "CN", resp.Country.Code)
+	assert.Equal(t, "香港特别行政区", resp.Admin1.Zh)
+	assert.Equal(t, "观塘区", resp.Admin2.Zh)
+}
+
 func TestApplyChinaSARTransformTaiwan(t *testing.T) {
 	// Taiwan already has a province/county admin hierarchy — just rewrite country.
 	resp := gridResponse{

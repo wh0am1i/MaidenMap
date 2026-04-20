@@ -35,6 +35,11 @@ type gridResponse struct {
 	Admin1  biName       `json:"admin1"`
 	Admin2  biName       `json:"admin2"`
 	City    biName       `json:"city"`
+
+	// usedDataV is set when the admin fields were resolved via the DataV
+	// polygon index (CN family). The SAR-transform branch uses it to skip
+	// the admin1→admin2 swap that only makes sense for the GeoNames path.
+	usedDataV bool `json:"-"`
 }
 
 type gridError struct {
@@ -47,6 +52,7 @@ type gridError struct {
 func GridSingle(ds *data.Dataset) gin.HandlerFunc {
 	g := &geocode.Geocoder{
 		Countries: ds.Countries, CountriesByCode: ds.CountriesByCode,
+		DataV:  ds.DataV,
 		KDTree: ds.KDTree, Admin1: ds.Admin1, Admin2: ds.Admin2,
 	}
 	return func(c *gin.Context) {
@@ -63,6 +69,7 @@ func GridSingle(ds *data.Dataset) gin.HandlerFunc {
 func GridBatch(ds *data.Dataset) gin.HandlerFunc {
 	g := &geocode.Geocoder{
 		Countries: ds.Countries, CountriesByCode: ds.CountriesByCode,
+		DataV:  ds.DataV,
 		KDTree: ds.KDTree, Admin1: ds.Admin1, Admin2: ds.Admin2,
 	}
 	return func(c *gin.Context) {
@@ -99,11 +106,12 @@ func resolve(code string, g *geocode.Geocoder) (gridResponse, error) {
 	}
 	r := g.Lookup(loc.Lat, loc.Lon)
 	resp := gridResponse{
-		Grid:   loc.Grid,
-		Center: centerResp{Lat: round4(loc.Lat), Lon: round4(loc.Lon)},
-		Admin1: biName{En: r.Admin1.En, Zh: r.Admin1.Zh},
-		Admin2: biName{En: r.Admin2.En, Zh: r.Admin2.Zh},
-		City:   biName{En: r.CityName, Zh: r.CityNameZh},
+		Grid:      loc.Grid,
+		Center:    centerResp{Lat: round4(loc.Lat), Lon: round4(loc.Lon)},
+		Admin1:    biName{En: r.Admin1.En, Zh: r.Admin1.Zh},
+		Admin2:    biName{En: r.Admin2.En, Zh: r.Admin2.Zh},
+		City:      biName{En: r.CityName, Zh: r.CityNameZh},
+		usedDataV: r.UsedDataV,
 	}
 	if r.Country != nil {
 		resp.Country = &countryResp{Code: r.Country.Code, Name: biName{En: r.Country.Name, Zh: r.Country.NameZh}}
@@ -131,11 +139,12 @@ var sarAsAdmin1 = map[string]biName{
 // applyChinaSARTransform folds Hong Kong, Macao, and Taiwan query results
 // into mainland China per the project's product decision:
 //
-//   - HK / MO → country becomes CN; SAR name becomes admin1; the original
-//     admin1 (a district) drops to admin2 since HK/MO have no natural level
-//     in between.
-//   - TW → country becomes CN; admin hierarchy (province + county) is already
-//     well-formed in GeoNames, so it stays untouched.
+//   - Country always becomes CN for HK / MO / TW.
+//   - When DataV populated the admin fields, admin1 already holds the SAR /
+//     province name (e.g. 香港特别行政区, 台湾省) and admin2 the district, so
+//     no swap is needed.
+//   - Otherwise (GeoNames-only path, e.g. DataV missing) HK / MO admin1 is a
+//     district; shift it down to admin2 and insert the SAR name at admin1.
 //
 // No-op for any other country.
 func applyChinaSARTransform(resp *gridResponse) {
@@ -147,6 +156,9 @@ func applyChinaSARTransform(resp *gridResponse) {
 		return
 	}
 	resp.Country = &prcCountry
+	if resp.usedDataV {
+		return
+	}
 	if sar, ok := sarAsAdmin1[code]; ok {
 		resp.Admin2 = resp.Admin1
 		resp.Admin1 = sar

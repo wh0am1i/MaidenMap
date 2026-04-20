@@ -16,11 +16,12 @@ import (
 type Dataset struct {
 	Countries       *geojson.FeatureCollection
 	CountriesByCode map[string]geocode.Country // ISO alpha-2 → country struct, for code-based fallback
+	DataV           *geocode.DataVIndex        // Chinese admin-polygon lookup (nil if datav.geojson missing)
 	Cities          []geocode.City
 	KDTree          *geocode.KDTree
 	Admin1          map[string]geocode.AdminEntry // "US.CA" -> {En, Zh}
 	Admin2          map[string]geocode.AdminEntry // "US.CA.037" -> {En, Zh}
-	UpdatedAt       time.Time                     // latest mtime of the three files
+	UpdatedAt       time.Time                     // latest mtime of loaded files
 }
 
 // CityCount returns the number of cities loaded.
@@ -65,15 +66,36 @@ func Load(dir string) (*Dataset, error) {
 		byCode[code] = geocode.Country{Code: code, Name: nameEn, NameZh: nameZh}
 	}
 
+	// DataV is optional — if the file isn't there the system still works,
+	// it just falls back to GeoNames admin for China queries.
+	datav, datavMtime, _ := loadDataV(filepath.Join(dir, "datav.geojson"))
+	if datavMtime.After(updated) {
+		updated = datavMtime
+	}
+
 	return &Dataset{
 		Countries:       countries,
 		CountriesByCode: byCode,
+		DataV:           datav,
 		Cities:          cities,
 		KDTree:          geocode.BuildKDTree(cities),
 		Admin1:          admin.Admin1,
 		Admin2:          admin.Admin2,
 		UpdatedAt:       updated,
 	}, nil
+}
+
+func loadDataV(path string) (*geocode.DataVIndex, time.Time, error) {
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return nil, time.Time{}, err
+	}
+	fc, err := geojson.UnmarshalFeatureCollection(b)
+	if err != nil {
+		return nil, time.Time{}, err
+	}
+	info, _ := os.Stat(path)
+	return geocode.BuildDataVIndex(fc), info.ModTime(), nil
 }
 
 func loadCountries(path string) (*geojson.FeatureCollection, time.Time, error) {

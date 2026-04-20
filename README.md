@@ -2,14 +2,14 @@
 
 自托管的梅登海德网格码（Maidenhead Locator）反查地名服务，面向业余无线电（HAM）爱好者。
 
-- **后端**：Go 1.26 + Gin，离线数据（GeoNames + Natural Earth）
+- **后端**：Go 1.26 + Gin，离线数据（GeoNames + Natural Earth + DataV 中国行政区划）
 - **前端**：React 19 + Vite + TypeScript + shadcn/ui，中英双语，深/浅色跟随系统
 - **部署**：Docker Compose（api + web 两容器），前面可加主机 nginx 做 TLS 终止
 
 ## 快速开始
 
 ```bash
-# 首次：拉取 GeoNames + Natural Earth 数据到 ./data（几分钟，约下载 500 MB）
+# 首次：拉取 GeoNames + Natural Earth + DataV 数据到 ./data（几分钟）
 docker compose --profile update run --rm update-data
 
 # 启动栈
@@ -218,7 +218,7 @@ server {
 git pull
 docker compose build
 
-# 重新拉取最新 GeoNames + Natural Earth 数据
+# 重新拉取最新 GeoNames + Natural Earth + DataV 数据
 docker compose --profile update run --rm update-data
 
 # 数据写入 ./data/（原子写，服务不用重启，但要重启才会重新加载）
@@ -230,19 +230,11 @@ docker compose restart api
 数据源：
 - **GeoNames** cities15000、admin1CodesASCII、admin2Codes、alternateNamesV2（中文名）—— CC-BY
 - **Natural Earth** `ne_10m_admin_0_countries.geojson` —— Public Domain（含 HK/MO/TW 独立多边形）
-- **OpenStreetMap China Extract**（`china-latest.osm.pbf` from Geofabrik，约 1.5 GB）—— ODbL，用于给 GeoNames 漏掉中文名的 CN/HK/MO/TW 城市做补洞
+- **阿里云 DataV** 中国行政区划 GeoJSON（`geo.datav.aliyun.com/areas_v3/bound`）—— 公开数据，用作 CN / HK / MO / TW 网格的省-市-区点查询依据
 
-OSM 补洞默认开启，会给"中国家族"内所有 `name_zh = ""` 的 GeoNames 条目做最近邻匹配（≤ 10 km）。
+CN 家族查询走 DataV 的点-面查询（省 → 区县），其它地区继续用 GeoNames 最近城市的 admin 编码。DataV 抓取约 400 次 HTTP 调用（国家 → 省 → 市），跑一次 1～2 分钟。文件落盘为 `data/datav.geojson`；如果缺失，API 会回退到 GeoNames 路径。
 
-- **从国内访问 Geofabrik 慢**：可以预先用迅雷 / 浏览器等途径把 `china-latest.osm.pbf` 下载到本地，然后：
-  ```bash
-  docker compose --profile update run --rm \
-    -v /path/to/china-latest.osm.pbf:/cache/china.pbf:ro \
-    update-data --osm-china-url=/cache/china.pbf
-  ```
-  URL 位置填容器内绝对路径或 `file:///...` 都可以。
-- **完全跳过**：`--osm-china-url=""` 禁用 OSM 补洞（中国城市中文覆盖率会从 ~98% 降到 ~90%，其它地区不受影响）。
-- 下载成功后文件在容器临时目录，退出自动清理。
+- **关掉 DataV**：`--datav-url=""`（或 `DATAV_URL=""`），中国网格的 admin 会退回 GeoNames 最近邻，精度会明显下降（例如 PM00ad 会错判成 富阳区 而不是 西湖区）。
 
 ## 本地开发
 
@@ -276,3 +268,4 @@ cd web && npm run test
 数据层保持各自原有许可：
 - GeoNames — [CC-BY 4.0](https://creativecommons.org/licenses/by/4.0/)
 - Natural Earth — Public Domain
+- DataV GeoAtlas — 阿里云开放数据（公开可用）
