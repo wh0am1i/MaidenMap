@@ -71,9 +71,14 @@ curl http://127.0.0.1:8180/api/grid/JO65ab
 **字段含义**：
 - `grid` — 归一化后的网格码
 - `center.lat` / `center.lon` — 网格中心经纬度（WGS84，精度 4 位小数）
-- `country` — 通过点-多边形判断的国家；海洋或南极空缺时为 `null`
-- `admin1` / `admin2` — 最近城市所在的一级/二级行政区（与 country 不一致时丢弃 admin，避免边界误判）
-- `city` — 最近城市名（来自 GeoNames cities15000）
+- `country` — 通过点-多边形判断的国家；海洋或南极空缺时为 `null`。`HK/MO/TW` 会在响应里重写为 `CN` + 中华人民共和国
+- `admin1` / `admin2` — 一级 / 二级行政区
+  - **CN / HK / MO / TW**：走 DataV 点-面查询（authoritative），admin1 是省/SAR，admin2 是区县
+  - **其他国家**：走 GeoNames 最近城市的 admin 编码（若最近城市与检测到的 country 不符则丢弃 admin，避免边界误判）
+- `city` — 最近城市 / 所在城市
+  - **中国大陆**：DataV 的 city 层（例如"杭州市"）
+  - **其他（含 HK / MO / TW）**：GeoNames cities15000 里的最近人口点
+- `en` 字段：admin1 有手工英文映射（省份 / SAR 全称）；admin2 / 大陆 city 的英文由拼音生成 + 通名翻译（`区 → District`，`市 / 省` 省略），少数约定俗成名（Ürümqi / Hohhot / Inner Mongolia 等）可能与拼音有出入
 
 **海洋点示例**（country 为 null）：
 
@@ -129,7 +134,7 @@ curl "http://127.0.0.1:8180/api/grid?codes=JO65ab,OM89,BAD"
       "center": { "lat": 39.5, "lon": 117 },
       "country": { "code": "CN", "name": { "en": "People's Republic of China", "zh": "中华人民共和国" } },
       "admin1": { "en": "Tianjin", "zh": "天津市" },
-      "admin2": { "en": "Tianjin Municipality", "zh": "天津市" },
+      "admin2": { "en": "Wuqing District", "zh": "武清区" },
       "city":   { "en": "Yangcun", "zh": "" }
     },
     {
