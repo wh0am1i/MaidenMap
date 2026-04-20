@@ -25,8 +25,9 @@ func TestFilterAlternateNamesPreferred(t *testing.T) {
 
 	// Berlin: 柏林 is preferred (col 4 = "1") → wins over 柏林市
 	assert.Equal(t, "柏林", out[2950159])
-	// Tokyo: 东京 is short-name (col 5 = "1"), no preferred present → wins over 东京都
-	// 东京旧名 has isHistoric = 1, should be skipped entirely
+	// Tokyo: 东京 is short-name (col 5 = "1"), no preferred present → wins over 东京都.
+	// 东京旧名 has isHistoric = 1 (col 7), 东京方言 has isColloquial = 1 (col 6);
+	// both should be skipped entirely.
 	assert.Equal(t, "东京", out[1850147])
 	// Berlin admin1: only one match
 	assert.Equal(t, "柏林州", out[2950157])
