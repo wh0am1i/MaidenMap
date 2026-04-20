@@ -41,6 +41,7 @@ func main() {
 	r := gin.New()
 	r.Use(gin.Recovery())
 	r.Use(middleware.Logger())
+	r.Use(middleware.CORS())
 	if err := r.SetTrustedProxies(strings.Split(*trustedProxiesRaw, ",")); err != nil {
 		slog.Error("SetTrustedProxies failed", "err", err)
 		os.Exit(1)
