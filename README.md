@@ -250,13 +250,6 @@ cd api && go test ./...
 cd web && npm run test
 ```
 
-## 文档
-
-- [总体设计](docs/superpowers/specs/2026-04-20-maidenmap-design.md)
-- [前端设计](docs/superpowers/specs/2026-04-20-maidenmap-frontend-design.md)
-- [后端 L3 双语扩展 plan](docs/superpowers/plans/2026-04-20-backend-l3-prerequisite.md)
-- [前端 plan](docs/superpowers/plans/2026-04-20-maidenmap-frontend.md)
-
 ## 许可
 
 数据来源保持各自许可（GeoNames CC-BY、Natural Earth Public Domain）。代码未指定许可；如需开源请补 LICENSE 文件。
