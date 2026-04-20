@@ -1,0 +1,58 @@
+{
+  "brand": { "name": "MaidenMap", "tagline": "网格 → 位置" },
+  "nav": {
+    "single": "单个查询",
+    "batch": "批量",
+    "about": "关于"
+  },
+  "hint": {
+    "enter_grid": "请输入梅登海德网格",
+    "valid_n_chars": "有效（{{n}} 位）",
+    "need_more_chars": "再输入 {{n}} 位",
+    "enter_to_lock": "按回车锁定"
+  },
+  "field": {
+    "country": "国家",
+    "admin1": "一级行政区",
+    "admin2": "二级行政区",
+    "city": "最近城市",
+    "center": "中心点",
+    "distance_km": "{{km}} 公里"
+  },
+  "action": {
+    "copy": "复制",
+    "copied": "已复制",
+    "share": "分享链接",
+    "export": "导出",
+    "export_csv": "CSV",
+    "query_all": "查询全部（{{n}}）",
+    "clear": "清空",
+    "fit_view": "适配",
+    "toggle_neighbors": "邻居"
+  },
+  "history": {
+    "title": "历史记录",
+    "empty": "暂无查询记录",
+    "count": "{{n}} / 20",
+    "clear_all": "清空历史"
+  },
+  "batch": {
+    "paste_hint": "粘贴网格码列表（逗号或换行分隔）",
+    "results_summary": "{{ok}} / {{total}} 解析成功",
+    "invalid_format": "格式错误",
+    "no_country": "〈无国家〉"
+  },
+  "error": {
+    "invalid_grid": "无效网格:{{message}}",
+    "rate_limited": "请求过快,稍后再试",
+    "network": "网络错误,重试?",
+    "offline_banner": "离线 — 仅缓存结果可用"
+  },
+  "about": {
+    "title": "关于 MaidenMap",
+    "intro": "MaidenMap 把梅登海德网格码转换为地名信息,全部使用离线 GeoNames + Natural Earth 数据。",
+    "api_heading": "HTTP API",
+    "credits_heading": "数据来源",
+    "credits_body": "城市和行政区划数据 © GeoNames(CC-BY)。国家边界 © Natural Earth(公有领域)。"
+  }
+}
