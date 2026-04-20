@@ -1,12 +1,20 @@
 package geocode
 
+// AdminEntry is a bilingual administrative division name.
+// JSON tags let it round-trip through the admin_codes.json file written by
+// update-data.
+type AdminEntry struct {
+	En string `json:"en"`
+	Zh string `json:"zh"`
+}
+
 // ResolveAdminNames looks up admin1/admin2 display names from code maps.
-// Empty inputs or missing entries return empty strings (not an error).
-func ResolveAdminNames(a1, a2 map[string]string, country, admin1Code, admin2Code string) (string, string) {
+// Empty inputs or missing entries return zero-value AdminEntry (not an error).
+func ResolveAdminNames(a1, a2 map[string]AdminEntry, country, admin1Code, admin2Code string) (AdminEntry, AdminEntry) {
 	if country == "" {
-		return "", ""
+		return AdminEntry{}, AdminEntry{}
 	}
-	var n1, n2 string
+	var n1, n2 AdminEntry
 	if admin1Code != "" {
 		n1 = a1[country+"."+admin1Code]
 	}
