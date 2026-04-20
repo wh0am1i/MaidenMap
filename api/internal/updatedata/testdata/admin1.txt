@@ -1,0 +1,2 @@
+DE.16	Berlin	Berlin	2950157
+JP.40	Tokyo	Tokyo	1850144
