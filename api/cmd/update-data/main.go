@@ -11,6 +11,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/longbridgeapp/opencc"
 	"github.com/wh0am1i/maidenmap/api/internal/geocode"
@@ -23,10 +24,21 @@ const (
 	defaultAdmin2URL         = "https://download.geonames.org/export/dump/admin2Codes.txt"
 	defaultCountriesURL      = "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_10m_admin_0_countries.geojson"
 	defaultAlternateNamesURL = "https://download.geonames.org/export/dump/alternateNamesV2.zip"
+	defaultOSMChinaURL       = "https://download.geofabrik.de/asia/china-latest.osm.pbf"
 
 	minCities    = 10000
 	minCountries = 150
+
+	// Spatial match threshold for OSM zh-name enrichment. A GeoNames city
+	// center and the corresponding OSM place node are usually within a
+	// couple km of each other; 10 km leaves slack for small towns where
+	// the two sources picked different representative coordinates.
+	osmEnrichMaxKm = 10.0
 )
+
+// chinaFamily is the set of country codes whose missing zh names we try to
+// fill from the OSM China extract.
+var chinaFamily = map[string]bool{"CN": true, "HK": true, "MO": true, "TW": true}
 
 func main() {
 	dataDir := flag.String("data-dir", envDefault("DATA_DIR", "./data"), "output directory")
@@ -35,6 +47,7 @@ func main() {
 	admin2URL := flag.String("admin2-url", envDefault("ADMIN2_URL", defaultAdmin2URL), "")
 	countriesURL := flag.String("countries-url", envDefault("COUNTRIES_URL", defaultCountriesURL), "")
 	altNamesURL := flag.String("alt-names-url", envDefault("ALT_NAMES_URL", defaultAlternateNamesURL), "")
+	osmChinaURL := flag.String("osm-china-url", envDefault("OSM_CHINA_URL", defaultOSMChinaURL), "OSM PBF extract for China; empty disables OSM enrichment")
 	flag.Parse()
 
 	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, nil)))
@@ -175,6 +188,29 @@ func main() {
 		cities = append(cities, c)
 	}
 
+	// OSM China enrichment — fills zh names for GeoNames entries in CN/HK/MO/TW
+	// that GeoNames' alternateNames left blank. OSM's Chinese-place coverage
+	// is much deeper than GeoNames' for mainland. Skipped if URL is empty.
+	if strings.TrimSpace(*osmChinaURL) != "" {
+		missing := countMissingZhCN(cities)
+		if missing == 0 {
+			slog.Info("osm enrich skipped", "reason", "no missing zh in CN/HK/MO/TW")
+		} else {
+			slog.Info("osm enrich start", "missing_before", missing)
+			osmPath := filepath.Join(tmp, "china-latest.osm.pbf")
+			if err := updatedata.DownloadTo(*osmChinaURL, osmPath); err != nil {
+				slog.Warn("osm download failed; skipping enrichment", "err", err)
+			} else {
+				filled, err := enrichFromOSM(cities, osmPath)
+				if err != nil {
+					slog.Warn("osm parse failed; skipping enrichment", "err", err)
+				} else {
+					slog.Info("osm enrich done", "filled", filled, "missing_after", countMissingZhCN(cities))
+				}
+			}
+		}
+	}
+
 	a1Final := make(map[string]geocode.AdminEntry, len(a1Raw))
 	for code, e := range a1Raw {
 		a1Final[code] = geocode.AdminEntry{En: e.Name, Zh: zhByID[e.GeonameID]}
@@ -300,4 +336,47 @@ func envDefault(key, def string) string {
 		return v
 	}
 	return def
+}
+
+func countMissingZhCN(cities []geocode.City) int {
+	n := 0
+	for _, c := range cities {
+		if chinaFamily[c.CountryCode] && c.NameZh == "" {
+			n++
+		}
+	}
+	return n
+}
+
+// enrichFromOSM reads the OSM PBF extract, builds a list of place nodes
+// with Chinese names, and fills missing NameZh on GeoNames CN/HK/MO/TW cities
+// using nearest-neighbor spatial matching. Returns the count of filled
+// entries. `cities` is mutated in place.
+func enrichFromOSM(cities []geocode.City, osmPath string) (int, error) {
+	f, err := os.Open(osmPath)
+	if err != nil {
+		return 0, err
+	}
+	defer f.Close()
+
+	places, err := updatedata.ParseOSMPlaces(f)
+	if err != nil {
+		return 0, err
+	}
+	slog.Info("osm places parsed", "count", len(places))
+
+	filled := 0
+	for i := range cities {
+		c := &cities[i]
+		if !chinaFamily[c.CountryCode] || c.NameZh != "" {
+			continue
+		}
+		name, ok := updatedata.NearestOSMPlaceWithin(places, c.Lat, c.Lon, osmEnrichMaxKm)
+		if !ok {
+			continue
+		}
+		c.NameZh = name
+		filled++
+	}
+	return filled, nil
 }

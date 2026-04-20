@@ -228,8 +228,11 @@ docker compose restart api
 `update-data` 服务复用 `api` 的镜像（同一个 Dockerfile 和二进制，只是换了 entrypoint），所以 `docker compose build` 一次就够。如果只改数据、没改代码，`build` 那步可以省掉。
 
 数据源：
-- GeoNames cities15000、admin1CodesASCII、admin2Codes、alternateNamesV2（中文名）—— CC-BY
-- Natural Earth `ne_10m_admin_0_countries.geojson` —— Public Domain（含 HK/MO/TW 独立多边形）
+- **GeoNames** cities15000、admin1CodesASCII、admin2Codes、alternateNamesV2（中文名）—— CC-BY
+- **Natural Earth** `ne_10m_admin_0_countries.geojson` —— Public Domain（含 HK/MO/TW 独立多边形）
+- **OpenStreetMap China Extract**（`china-latest.osm.pbf` from Geofabrik，约 1.5 GB）—— ODbL，用于给 GeoNames 漏掉中文名的 CN/HK/MO/TW 城市做补洞
+
+OSM 补洞默认开启，会给"中国家族"内所有 `name_zh = ""` 的 GeoNames 条目做最近邻匹配（≤ 10 km）。如果网络慢或者空间不够，可以用 `--osm-china-url=""` 跳过这一步（覆盖率会下降，但不影响其它地区）。下载在内存临时目录，用完删除。
 
 ## 本地开发
 
