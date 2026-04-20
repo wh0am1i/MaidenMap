@@ -25,7 +25,8 @@ func TestParseNaturalEarthCountries(t *testing.T) {
 	assert.Equal(t, "德国", byISO["DE"]["name_zh"])
 	assert.Equal(t, "日本", byISO["JP"]["name_zh"])
 
-	// Mainland-friendly overrides: 香港 → 中国香港, 台湾 → 中国台湾.
-	assert.Equal(t, "中国香港", byISO["HK"]["name_zh"])
-	assert.Equal(t, "中国台湾", byISO["TW"]["name_zh"])
+	// HK / TW are kept verbatim at the data layer; the handler is what
+	// folds them into CN at response time.
+	assert.Equal(t, "香港", byISO["HK"]["name_zh"])
+	assert.Equal(t, "台湾", byISO["TW"]["name_zh"])
 }

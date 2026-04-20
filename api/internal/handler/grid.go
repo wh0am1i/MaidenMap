@@ -106,7 +106,48 @@ func resolve(code string, g *geocode.Geocoder) (gridResponse, error) {
 	if r.Country != nil {
 		resp.Country = &countryResp{Code: r.Country.Code, Name: biName{En: r.Country.Name, Zh: r.Country.NameZh}}
 	}
+	applyChinaSARTransform(&resp)
 	return resp, nil
+}
+
+// China PRC's People's Republic identity used when we subsume HK/MO/TW.
+var prcCountry = countryResp{
+	Code: "CN",
+	Name: biName{En: "People's Republic of China", Zh: "中华人民共和国"},
+}
+
+// sarAsAdmin1 maps ISO alpha-2 of a Chinese SAR to the admin1 entry we insert
+// when demoting it under CN. HK and MO have no natural province-level admin
+// in GeoNames, so shifting the original admin1 (the district) into admin2
+// makes room for the SAR name at admin1.
+var sarAsAdmin1 = map[string]biName{
+	"HK": {En: "Hong Kong", Zh: "香港"},
+	"MO": {En: "Macao", Zh: "澳门"},
+}
+
+// applyChinaSARTransform folds Hong Kong, Macao, and Taiwan query results
+// into mainland China per the project's product decision:
+//
+//   - HK / MO → country becomes CN; SAR name becomes admin1; the original
+//     admin1 (a district) drops to admin2 since HK/MO have no natural level
+//     in between.
+//   - TW → country becomes CN; admin hierarchy (province + county) is already
+//     well-formed in GeoNames, so it stays untouched.
+//
+// No-op for any other country.
+func applyChinaSARTransform(resp *gridResponse) {
+	if resp.Country == nil {
+		return
+	}
+	code := resp.Country.Code
+	if code != "HK" && code != "MO" && code != "TW" {
+		return
+	}
+	resp.Country = &prcCountry
+	if sar, ok := sarAsAdmin1[code]; ok {
+		resp.Admin2 = resp.Admin1
+		resp.Admin1 = sar
+	}
 }
 
 func round4(f float64) float64 {

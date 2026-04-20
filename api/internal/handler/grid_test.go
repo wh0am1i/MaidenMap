@@ -121,3 +121,74 @@ func TestGridBatchMissingCodes(t *testing.T) {
 	r.ServeHTTP(w, req)
 	assert.Equal(t, http.StatusBadRequest, w.Code)
 }
+
+func TestApplyChinaSARTransformHongKong(t *testing.T) {
+	resp := gridResponse{
+		Country: &countryResp{
+			Code: "HK",
+			Name: biName{En: "Hong Kong", Zh: "香港"},
+		},
+		Admin1: biName{En: "Kwun Tong District", Zh: "观塘"},
+		Admin2: biName{En: "", Zh: ""},
+		City:   biName{En: "Kwun Tong", Zh: "观塘"},
+	}
+	applyChinaSARTransform(&resp)
+
+	// Country rewritten to CN
+	require.NotNil(t, resp.Country)
+	assert.Equal(t, "CN", resp.Country.Code)
+	assert.Equal(t, "People's Republic of China", resp.Country.Name.En)
+	assert.Equal(t, "中华人民共和国", resp.Country.Name.Zh)
+
+	// SAR name takes admin1; original admin1 (district) drops to admin2
+	assert.Equal(t, "Hong Kong", resp.Admin1.En)
+	assert.Equal(t, "香港", resp.Admin1.Zh)
+	assert.Equal(t, "Kwun Tong District", resp.Admin2.En)
+	assert.Equal(t, "观塘", resp.Admin2.Zh)
+
+	// City unchanged
+	assert.Equal(t, "Kwun Tong", resp.City.En)
+	assert.Equal(t, "观塘", resp.City.Zh)
+}
+
+func TestApplyChinaSARTransformTaiwan(t *testing.T) {
+	// Taiwan already has a province/county admin hierarchy — just rewrite country.
+	resp := gridResponse{
+		Country: &countryResp{
+			Code: "TW",
+			Name: biName{En: "Taiwan", Zh: "台湾"},
+		},
+		Admin1: biName{En: "Taiwan", Zh: "台湾省"},
+		Admin2: biName{En: "Miaoli", Zh: "苗栗县"},
+		City:   biName{En: "Miaoli", Zh: "苗栗"},
+	}
+	applyChinaSARTransform(&resp)
+
+	assert.Equal(t, "CN", resp.Country.Code)
+	assert.Equal(t, "中华人民共和国", resp.Country.Name.Zh)
+	// Admin hierarchy preserved
+	assert.Equal(t, "台湾省", resp.Admin1.Zh)
+	assert.Equal(t, "苗栗县", resp.Admin2.Zh)
+}
+
+func TestApplyChinaSARTransformNoOpForOtherCountries(t *testing.T) {
+	resp := gridResponse{
+		Country: &countryResp{
+			Code: "DE",
+			Name: biName{En: "Germany", Zh: "德国"},
+		},
+		Admin1: biName{En: "Berlin", Zh: "柏林"},
+	}
+	applyChinaSARTransform(&resp)
+
+	assert.Equal(t, "DE", resp.Country.Code)
+	assert.Equal(t, "德国", resp.Country.Name.Zh)
+	assert.Equal(t, "Berlin", resp.Admin1.En)
+}
+
+func TestApplyChinaSARTransformHandlesNilCountry(t *testing.T) {
+	// Ocean point — no country. Should not panic.
+	resp := gridResponse{Country: nil}
+	applyChinaSARTransform(&resp)
+	assert.Nil(t, resp.Country)
+}
