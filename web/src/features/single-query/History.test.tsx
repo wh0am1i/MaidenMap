@@ -11,8 +11,8 @@ function wrap(node: React.ReactNode) {
 }
 
 const items: HistoryItem[] = [
-  { grid: "JO65", label: { en: "Malmö", zh: "马尔默" }, countryCode: "SE", at: Date.now() },
-  { grid: "PM95", label: { en: "Tsuru", zh: "" }, countryCode: "JP", at: Date.now() - 60_000 },
+  { grid: "JO65", label: { en: "Malmö", zh: "马尔默" }, admin1: { en: "Skåne", zh: "斯科讷省" }, countryCode: "SE", at: Date.now() },
+  { grid: "PM95", label: { en: "Tsuru", zh: "" }, admin1: { en: "Yamanashi", zh: "山梨县" }, countryCode: "JP", at: Date.now() - 60_000 },
 ];
 
 describe("History", () => {
@@ -29,11 +29,19 @@ describe("History", () => {
     expect(picked).toEqual(["JO65"]);
   });
 
-  it("picks zh label under zh-CN", async () => {
+  it("shows admin1 zh as secondary line under zh-CN", async () => {
     void i18n.changeLanguage("zh-CN");
     render(<I18nextProvider i18n={i18n}><History items={items} onPick={() => {}} onClear={() => {}} /></I18nextProvider>);
-    expect(screen.getByText("马尔默")).toBeInTheDocument();
+    expect(screen.getByText("斯科讷省")).toBeInTheDocument();
     void i18n.changeLanguage("en"); // reset for other tests
+  });
+
+  it("falls back to label when admin1 is empty (legacy entries)", () => {
+    const legacy: HistoryItem[] = [
+      { grid: "X1", label: { en: "OldCity", zh: "旧城" }, admin1: { en: "", zh: "" }, countryCode: "US", at: Date.now() },
+    ];
+    wrap(<History items={legacy} onPick={() => {}} onClear={() => {}} />);
+    expect(screen.getByText("OldCity")).toBeInTheDocument();
   });
 
   it("calls onClear when clicking clear", async () => {

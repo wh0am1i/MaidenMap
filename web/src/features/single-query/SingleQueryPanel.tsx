@@ -31,6 +31,7 @@ export function SingleQueryPanel({
       history.push({
         grid: d.grid,
         label: bestLabel(d),
+        admin1: d.admin1 ?? { en: "", zh: "" },
         countryCode: d.country?.code ?? "",
         at: Date.now(),
       });

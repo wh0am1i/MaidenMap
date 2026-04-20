@@ -43,7 +43,7 @@ export function History({
                 className="flex-1 flex items-center gap-2 text-left text-xs min-w-0"
               >
                 <span className="font-mono text-[rgb(var(--ham))] w-[70px] shrink-0">{it.grid}</span>
-                <LocalizedName value={it.label} className="flex-1 truncate text-[rgb(var(--dim))]" />
+                <LocalizedName value={secondary(it)} className="flex-1 truncate text-[rgb(var(--dim))]" />
                 <span className="text-[10px] text-[rgb(var(--dimmer))] shrink-0">{formatRelative(it.at, i18n.language)}</span>
               </button>
               {onRemove && (
@@ -65,6 +65,13 @@ export function History({
       )}
     </div>
   );
+}
+
+// Prefer admin1 (省/州). Legacy entries persisted before admin1 was tracked
+// fall back to the old label so the list doesn't go blank for them.
+function secondary(it: HistoryItem) {
+  if (it.admin1 && (it.admin1.en || it.admin1.zh)) return it.admin1;
+  return it.label;
 }
 
 function formatRelative(ts: number, lang: string): string {

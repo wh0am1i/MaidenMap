@@ -3,7 +3,8 @@ import type { BiName } from "@/types/api";
 
 export interface HistoryEntry {
   grid: string;
-  label: BiName;
+  label: BiName;   // legacy secondary label (city/admin1 fallback); kept for backward-compat with older localStorage
+  admin1: BiName;  // one-level admin (省/州); preferred secondary line in the list
   countryCode: string;
   at: number; // ms epoch
 }
@@ -31,6 +32,7 @@ function load(): HistoryEntry[] {
       .map((e) => ({
         grid: e.grid as string,
         label: toBiName(e.label),
+        admin1: toBiName(e.admin1),
         countryCode: typeof e.countryCode === "string" ? e.countryCode : "",
         at: typeof e.at === "number" ? e.at : 0,
       }));
