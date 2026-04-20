@@ -252,4 +252,8 @@ cd web && npm run test
 
 ## 许可
 
-数据来源保持各自许可（GeoNames CC-BY、Natural Earth Public Domain）。代码未指定许可；如需开源请补 LICENSE 文件。
+代码以 [MIT License](LICENSE) 发布。
+
+数据层保持各自原有许可：
+- GeoNames — [CC-BY 4.0](https://creativecommons.org/licenses/by/4.0/)
+- Natural Earth — Public Domain
