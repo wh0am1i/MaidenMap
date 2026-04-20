@@ -232,7 +232,17 @@ docker compose restart api
 - **Natural Earth** `ne_10m_admin_0_countries.geojson` —— Public Domain（含 HK/MO/TW 独立多边形）
 - **OpenStreetMap China Extract**（`china-latest.osm.pbf` from Geofabrik，约 1.5 GB）—— ODbL，用于给 GeoNames 漏掉中文名的 CN/HK/MO/TW 城市做补洞
 
-OSM 补洞默认开启，会给"中国家族"内所有 `name_zh = ""` 的 GeoNames 条目做最近邻匹配（≤ 10 km）。如果网络慢或者空间不够，可以用 `--osm-china-url=""` 跳过这一步（覆盖率会下降，但不影响其它地区）。下载在内存临时目录，用完删除。
+OSM 补洞默认开启，会给"中国家族"内所有 `name_zh = ""` 的 GeoNames 条目做最近邻匹配（≤ 10 km）。
+
+- **从国内访问 Geofabrik 慢**：可以预先用迅雷 / 浏览器等途径把 `china-latest.osm.pbf` 下载到本地，然后：
+  ```bash
+  docker compose --profile update run --rm \
+    -v /path/to/china-latest.osm.pbf:/cache/china.pbf:ro \
+    update-data --osm-china-url=/cache/china.pbf
+  ```
+  URL 位置填容器内绝对路径或 `file:///...` 都可以。
+- **完全跳过**：`--osm-china-url=""` 禁用 OSM 补洞（中国城市中文覆盖率会从 ~98% 降到 ~90%，其它地区不受影响）。
+- 下载成功后文件在容器临时目录，退出自动清理。
 
 ## 本地开发
 
