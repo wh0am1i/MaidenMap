@@ -7,7 +7,7 @@ import (
 )
 
 const (
-	citiesBinVersion uint32 = 1
+	citiesBinVersion uint32 = 2
 )
 
 var citiesBinMagic = [4]byte{'M', 'M', 'C', 'B'}
@@ -15,6 +15,7 @@ var citiesBinMagic = [4]byte{'M', 'M', 'C', 'B'}
 // City is a population center with its administrative hierarchy codes.
 type City struct {
 	Name        string
+	NameZh      string // bilingual zh name (may be empty)
 	Lat         float32
 	Lon         float32
 	CountryCode string // 2-char ISO
@@ -29,9 +30,10 @@ type cityRecord struct {
 	Admin1Code  [8]byte
 	Admin2Code  [8]byte
 	NameLen     uint16
+	NameZhLen   uint16
 }
 
-// WriteCitiesBin encodes cities to the MMCB v1 binary format.
+// WriteCitiesBin encodes cities to the MMCB v2 binary format.
 func WriteCitiesBin(w io.Writer, cities []City) error {
 	if err := binary.Write(w, binary.LittleEndian, citiesBinMagic); err != nil {
 		return err
@@ -45,13 +47,18 @@ func WriteCitiesBin(w io.Writer, cities []City) error {
 
 	for _, c := range cities {
 		name := []byte(c.Name)
+		nameZh := []byte(c.NameZh)
 		if len(name) > 0xFFFF {
 			return fmt.Errorf("city name too long (%d bytes): %q", len(name), c.Name)
 		}
+		if len(nameZh) > 0xFFFF {
+			return fmt.Errorf("city zh name too long (%d bytes): %q", len(nameZh), c.NameZh)
+		}
 		rec := cityRecord{
-			Lat:     c.Lat,
-			Lon:     c.Lon,
-			NameLen: uint16(len(name)),
+			Lat:       c.Lat,
+			Lon:       c.Lon,
+			NameLen:   uint16(len(name)),
+			NameZhLen: uint16(len(nameZh)),
 		}
 		copyFixed(rec.CountryCode[:], c.CountryCode)
 		copyFixed(rec.Admin1Code[:], c.Admin1Code)
@@ -63,11 +70,14 @@ func WriteCitiesBin(w io.Writer, cities []City) error {
 		if _, err := w.Write(name); err != nil {
 			return err
 		}
+		if _, err := w.Write(nameZh); err != nil {
+			return err
+		}
 	}
 	return nil
 }
 
-// ReadCitiesBin decodes cities from the MMCB v1 binary format.
+// ReadCitiesBin decodes cities from the MMCB v2 binary format.
 func ReadCitiesBin(r io.Reader) ([]City, error) {
 	var magic [4]byte
 	if err := binary.Read(r, binary.LittleEndian, &magic); err != nil {
@@ -79,6 +89,9 @@ func ReadCitiesBin(r io.Reader) ([]City, error) {
 	var version, count uint32
 	if err := binary.Read(r, binary.LittleEndian, &version); err != nil {
 		return nil, fmt.Errorf("read version: %w", err)
+	}
+	if version == 1 {
+		return nil, fmt.Errorf("cities.bin is v1; rerun update-data to upgrade to v2")
 	}
 	if version != citiesBinVersion {
 		return nil, fmt.Errorf("unsupported version: %d", version)
@@ -97,8 +110,13 @@ func ReadCitiesBin(r io.Reader) ([]City, error) {
 		if _, err := io.ReadFull(r, nameBuf); err != nil {
 			return nil, fmt.Errorf("read name %d: %w", i, err)
 		}
+		nameZhBuf := make([]byte, rec.NameZhLen)
+		if _, err := io.ReadFull(r, nameZhBuf); err != nil {
+			return nil, fmt.Errorf("read zh name %d: %w", i, err)
+		}
 		cities = append(cities, City{
 			Name:        string(nameBuf),
+			NameZh:      string(nameZhBuf),
 			Lat:         rec.Lat,
 			Lon:         rec.Lon,
 			CountryCode: trimFixed(rec.CountryCode[:]),
