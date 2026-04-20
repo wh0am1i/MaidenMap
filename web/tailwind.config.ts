@@ -10,7 +10,7 @@ export default {
           DEFAULT: "rgb(var(--ham) / <alpha-value>)",
           glow: "rgb(var(--ham-glow) / <alpha-value>)",
         },
-        accent: "rgb(var(--accent) / <alpha-value>)",
+        success: "rgb(var(--success) / <alpha-value>)",
         danger: "rgb(var(--danger) / <alpha-value>)",
       },
       fontFamily: {

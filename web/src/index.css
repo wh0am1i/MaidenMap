@@ -14,6 +14,7 @@
     --ham: 230 116 58;
     --ham-glow: 230 116 58;
     --danger: 220 60 60;
+    --success: 34 160 80;
 
     color: rgb(var(--text));
     background: rgb(var(--bg));
@@ -30,6 +31,7 @@
     --ham: 255 140 66;
     --ham-glow: 255 140 66;
     --danger: 248 81 73;
+    --success: 63 185 80;
   }
 
   body {
