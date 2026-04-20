@@ -1,0 +1,62 @@
+{
+  "brand": { "name": "MaidenMap", "tagline": "grid → QTH" },
+  "nav": {
+    "single": "Single",
+    "batch": "Batch",
+    "about": "About"
+  },
+  "hint": {
+    "enter_grid": "Enter a Maidenhead grid",
+    "placeholder_example": "e.g. JO65ab",
+    "valid_n_chars": "Valid ({{n}}-char)",
+    "need_more_chars": "Need {{n}} more character(s)"
+  },
+  "field": {
+    "country": "Country",
+    "admin1": "Region",
+    "admin2": "Subregion",
+    "city": "Nearest city",
+    "center": "Center",
+    "distance_km": "{{km}} km"
+  },
+  "action": {
+    "copy": "Copy",
+    "share": "Share link",
+    "export": "Export",
+    "export_csv": "CSV",
+    "query_all": "Query all ({{n}})",
+    "clear": "Clear",
+    "fit_view": "Fit",
+    "toggle_neighbors": "Neighbors",
+    "result_copied": "Result copied",
+    "link_copied": "Link copied",
+    "remove": "Remove",
+    "map_layer": "Map layer"
+  },
+  "history": {
+    "title": "History",
+    "empty": "No recent queries",
+    "count": "{{n}} / 20",
+    "clear_all": "Clear history",
+    "mobile_summary": "{{n}} history items"
+  },
+  "batch": {
+    "paste_hint": "Paste grid codes (comma or newline separated)",
+    "results_summary": "{{ok}} / {{total}} parsed",
+    "invalid_format": "invalid format",
+    "no_country": "<no country>"
+  },
+  "error": {
+    "invalid_grid": "Invalid grid: {{message}}",
+    "rate_limited": "Too many requests. Try again shortly.",
+    "network": "Network error. Retry?",
+    "offline_banner": "Offline — cached results only"
+  },
+  "about": {
+    "title": "About MaidenMap",
+    "intro": "MaidenMap converts Maidenhead grid codes to location data using offline GeoNames + Natural Earth datasets.",
+    "api_heading": "HTTP API",
+    "credits_heading": "Data credits",
+    "credits_body": "City and administrative data © GeoNames (CC-BY). Country polygons © Natural Earth (public domain)."
+  }
+}

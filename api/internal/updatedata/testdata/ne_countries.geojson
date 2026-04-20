@@ -1,0 +1,15 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": { "ISO_A2_EH": "DE", "NAME_EN": "Germany", "NAME_ZH": "德国" },
+      "geometry": { "type": "Polygon", "coordinates": [[[5,47],[16,47],[16,55],[5,55],[5,47]]] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "ISO_A2_EH": "JP", "NAME_EN": "Japan", "NAME_ZH": "日本" },
+      "geometry": { "type": "Polygon", "coordinates": [[[128,30],[146,30],[146,46],[128,46],[128,30]]] }
+    }
+  ]
+}

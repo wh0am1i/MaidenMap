@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="ham" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#ff8c42"/>
+      <stop offset="100%" stop-color="#d06028"/>
+    </linearGradient>
+  </defs>
+  <!-- HAM orange rounded tile -->
+  <rect x="2" y="2" width="60" height="60" rx="12" fill="url(#ham)"/>
+  <!-- Faint Maidenhead grid overlay: 4×4 squares suggesting locator cells -->
+  <g stroke="rgba(255,255,255,0.18)" stroke-width="1" fill="none">
+    <line x1="17" y1="8" x2="17" y2="56"/>
+    <line x1="32" y1="8" x2="32" y2="56"/>
+    <line x1="47" y1="8" x2="47" y2="56"/>
+    <line x1="8" y1="20" x2="56" y2="20"/>
+    <line x1="8" y1="32" x2="56" y2="32"/>
+    <line x1="8" y1="44" x2="56" y2="44"/>
+  </g>
+  <!-- Highlighted locator cell (middle-upper) with a center dot -->
+  <rect x="32" y="20" width="15" height="12" fill="rgba(255,255,255,0.22)" stroke="#fff" stroke-width="1.5"/>
+  <circle cx="39.5" cy="26" r="2.5" fill="#fff"/>
+  <!-- Brand mark: FM text, matches the TopBar logo -->
+  <text x="32" y="52" text-anchor="middle"
+        font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif"
+        font-size="13" font-weight="800" fill="#fff" letter-spacing="0.5">FM</text>
+</svg>

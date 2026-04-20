@@ -1,0 +1,13 @@
+# Binaries
+/bin/
+maidenmap-server
+maidenmap-update-data
+
+# Test artifacts
+*.test
+*.out
+coverage.txt
+
+# IDE
+.idea/
+.vscode/
