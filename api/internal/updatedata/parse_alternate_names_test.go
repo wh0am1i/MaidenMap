@@ -50,3 +50,41 @@ func TestFilterAlternateNamesWrongLang(t *testing.T) {
 	_, hasTokyo := out[1850147]
 	assert.False(t, hasTokyo)
 }
+
+func TestFilterAlternateNamesAcceptsZhCNWhenNoBareZh(t *testing.T) {
+	f, err := os.Open("testdata/alternate_names_sample.txt")
+	require.NoError(t, err)
+	defer f.Close()
+
+	// 4000000 only has a zh-CN entry in the fixture; pre-widening it would
+	// have been skipped. Now it must come through.
+	out, err := FilterAlternateNamesByLang(f, "zh", map[uint32]bool{4000000: true})
+	require.NoError(t, err)
+	assert.Equal(t, "某城", out[4000000])
+}
+
+func TestFilterAlternateNamesSkipsTraditionalInFavorOfSimplified(t *testing.T) {
+	f, err := os.Open("testdata/alternate_names_sample.txt")
+	require.NoError(t, err)
+	defer f.Close()
+
+	// 4000001 has both a zh-TW preferred entry and a plain zh entry.
+	// zh-TW must be rejected outright; the zh entry wins.
+	out, err := FilterAlternateNamesByLang(f, "zh", map[uint32]bool{4000001: true})
+	require.NoError(t, err)
+	assert.Equal(t, "某镇", out[4000001])
+}
+
+func TestFilterAlternateNamesLangPriorityThenPreferred(t *testing.T) {
+	f, err := os.Open("testdata/alternate_names_sample.txt")
+	require.NoError(t, err)
+	defer f.Close()
+
+	// 4000002 has:
+	//   - zh-Hans preferred=1  → priority 2, preferred
+	//   - zh-CN   preferred=0  → priority 3
+	// zh-Hans outranks on language priority alone; preferred flag confirms.
+	out, err := FilterAlternateNamesByLang(f, "zh", map[uint32]bool{4000002: true})
+	require.NoError(t, err)
+	assert.Equal(t, "某区", out[4000002])
+}

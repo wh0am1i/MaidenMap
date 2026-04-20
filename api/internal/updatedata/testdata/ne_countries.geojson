@@ -10,6 +10,16 @@
       "type": "Feature",
       "properties": { "ISO_A2_EH": "JP", "NAME_EN": "Japan", "NAME_ZH": "日本" },
       "geometry": { "type": "Polygon", "coordinates": [[[128,30],[146,30],[146,46],[128,46],[128,30]]] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "ISO_A2_EH": "HK", "NAME_EN": "Hong Kong S.A.R.", "NAME_ZH": "香港" },
+      "geometry": { "type": "Polygon", "coordinates": [[[113.8,22.1],[114.5,22.1],[114.5,22.6],[113.8,22.6],[113.8,22.1]]] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "ISO_A2_EH": "TW", "NAME_EN": "Taiwan", "NAME_ZH": "台湾" },
+      "geometry": { "type": "Polygon", "coordinates": [[[120,22],[122,22],[122,25.5],[120,25.5],[120,22]]] }
     }
   ]
 }
