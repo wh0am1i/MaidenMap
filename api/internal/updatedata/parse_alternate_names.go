@@ -77,7 +77,7 @@ func FilterAlternateNamesByLang(r io.Reader, lang string, wanted map[uint32]bool
 		if !wanted[id] {
 			continue
 		}
-		name := fields[3]
+		name := cleanAlternateName(fields[3])
 		if name == "" {
 			continue
 		}
@@ -105,6 +105,18 @@ func FilterAlternateNamesByLang(r io.Reader, lang string, wanted map[uint32]bool
 		out[id] = c.name
 	}
 	return out, nil
+}
+
+// cleanAlternateName normalises a GeoNames alternate-name value. Some rows
+// contain literal artefacts like "台灣省 or 台灣省" or "foo or bar" where
+// submitters stuffed multiple values into one field separated by " or ".
+// We take the first segment and trim whitespace.
+func cleanAlternateName(raw string) string {
+	s := strings.TrimSpace(raw)
+	if idx := strings.Index(s, " or "); idx > 0 {
+		s = strings.TrimSpace(s[:idx])
+	}
+	return s
 }
 
 // betterCandidate reports whether `n` strictly beats `c` under the

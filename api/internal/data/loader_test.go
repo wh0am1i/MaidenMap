@@ -40,6 +40,13 @@ func TestLoadFromDir(t *testing.T) {
 	assert.Equal(t, "测试二级", ds.Admin2["XX.AA.001"].Zh)
 	assert.False(t, ds.UpdatedAt.IsZero())
 	assert.Equal(t, 2, ds.CityCount())
+
+	// CountriesByCode is keyed on iso_a2 — sanity check.
+	require.NotNil(t, ds.CountriesByCode)
+	xx, ok := ds.CountriesByCode["XX"]
+	require.True(t, ok)
+	assert.Equal(t, "Testland", xx.Name)
+	assert.Equal(t, "测试国", xx.NameZh)
 }
 
 func TestLoadMissingFile(t *testing.T) {

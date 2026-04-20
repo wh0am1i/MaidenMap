@@ -50,3 +50,32 @@ func TestGeocodeNoCities(t *testing.T) {
 	assert.Equal(t, "XX", res.Country.Code)
 	assert.Empty(t, res.CityName)
 }
+
+// Polygon lookup misses (offshore) but nearest city has a country code —
+// CountriesByCode fallback recovers it.
+func TestGeocodeFallsBackToCityCountryWhenPolygonMisses(t *testing.T) {
+	fc := testCountries(t)
+	cities := []City{
+		{Name: "CoastTown", NameZh: "海滨", Lat: 5, Lon: 5, CountryCode: "XX", Admin1Code: "AA", Admin2Code: "001"},
+	}
+	byCode := map[string]Country{
+		"XX": {Code: "XX", Name: "Testland", NameZh: "测试国"},
+	}
+	g := &Geocoder{
+		Countries:       fc,
+		CountriesByCode: byCode,
+		KDTree:          BuildKDTree(cities),
+		Admin1:          map[string]AdminEntry{"XX.AA": {En: "Prov", Zh: "省"}},
+		Admin2:          map[string]AdminEntry{"XX.AA.001": {En: "City", Zh: "市"}},
+	}
+
+	// Query at (15, 15) — outside XX polygon (0,0)-(10,10); polygon misses.
+	// Nearest city is still CoastTown in XX, so country gets filled by code.
+	res := g.Lookup(15, 15)
+	require.NotNil(t, res.Country)
+	assert.Equal(t, "XX", res.Country.Code)
+	assert.Equal(t, "Testland", res.Country.Name)
+	assert.Equal(t, "测试国", res.Country.NameZh)
+	assert.Equal(t, "CoastTown", res.CityName)
+	assert.Equal(t, "省", res.Admin1.Zh)
+}

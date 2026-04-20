@@ -46,7 +46,8 @@ type gridError struct {
 // GridSingle handles GET /api/grid/:code.
 func GridSingle(ds *data.Dataset) gin.HandlerFunc {
 	g := &geocode.Geocoder{
-		Countries: ds.Countries, KDTree: ds.KDTree, Admin1: ds.Admin1, Admin2: ds.Admin2,
+		Countries: ds.Countries, CountriesByCode: ds.CountriesByCode,
+		KDTree: ds.KDTree, Admin1: ds.Admin1, Admin2: ds.Admin2,
 	}
 	return func(c *gin.Context) {
 		resp, err := resolve(c.Param("code"), g)
@@ -61,7 +62,8 @@ func GridSingle(ds *data.Dataset) gin.HandlerFunc {
 // GridBatch handles GET /api/grid?codes=A,B,C.
 func GridBatch(ds *data.Dataset) gin.HandlerFunc {
 	g := &geocode.Geocoder{
-		Countries: ds.Countries, KDTree: ds.KDTree, Admin1: ds.Admin1, Admin2: ds.Admin2,
+		Countries: ds.Countries, CountriesByCode: ds.CountriesByCode,
+		KDTree: ds.KDTree, Admin1: ds.Admin1, Admin2: ds.Admin2,
 	}
 	return func(c *gin.Context) {
 		raw := c.Query("codes")
@@ -119,10 +121,11 @@ var prcCountry = countryResp{
 // sarAsAdmin1 maps ISO alpha-2 of a Chinese SAR to the admin1 entry we insert
 // when demoting it under CN. HK and MO have no natural province-level admin
 // in GeoNames, so shifting the original admin1 (the district) into admin2
-// makes room for the SAR name at admin1.
+// makes room for the SAR name at admin1. Uses the full "特别行政区" form
+// per the project's China-map labelling convention.
 var sarAsAdmin1 = map[string]biName{
-	"HK": {En: "Hong Kong", Zh: "香港"},
-	"MO": {En: "Macao", Zh: "澳门"},
+	"HK": {En: "Hong Kong Special Administrative Region", Zh: "香港特别行政区"},
+	"MO": {En: "Macao Special Administrative Region", Zh: "澳门特别行政区"},
 }
 
 // applyChinaSARTransform folds Hong Kong, Macao, and Taiwan query results

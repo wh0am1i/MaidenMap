@@ -14,12 +14,13 @@ import (
 
 // Dataset holds all in-memory data needed to serve geocoding requests.
 type Dataset struct {
-	Countries *geojson.FeatureCollection
-	Cities    []geocode.City
-	KDTree    *geocode.KDTree
-	Admin1    map[string]geocode.AdminEntry // "US.CA" -> {En, Zh}
-	Admin2    map[string]geocode.AdminEntry // "US.CA.037" -> {En, Zh}
-	UpdatedAt time.Time                     // latest mtime of the three files
+	Countries       *geojson.FeatureCollection
+	CountriesByCode map[string]geocode.Country // ISO alpha-2 → country struct, for code-based fallback
+	Cities          []geocode.City
+	KDTree          *geocode.KDTree
+	Admin1          map[string]geocode.AdminEntry // "US.CA" -> {En, Zh}
+	Admin2          map[string]geocode.AdminEntry // "US.CA.037" -> {En, Zh}
+	UpdatedAt       time.Time                     // latest mtime of the three files
 }
 
 // CityCount returns the number of cities loaded.
@@ -53,13 +54,25 @@ func Load(dir string) (*Dataset, error) {
 		updated = adminMtime
 	}
 
+	byCode := make(map[string]geocode.Country, len(countries.Features))
+	for _, f := range countries.Features {
+		code, _ := f.Properties["iso_a2"].(string)
+		if code == "" {
+			continue
+		}
+		nameEn, _ := f.Properties["name_en"].(string)
+		nameZh, _ := f.Properties["name_zh"].(string)
+		byCode[code] = geocode.Country{Code: code, Name: nameEn, NameZh: nameZh}
+	}
+
 	return &Dataset{
-		Countries: countries,
-		Cities:    cities,
-		KDTree:    geocode.BuildKDTree(cities),
-		Admin1:    admin.Admin1,
-		Admin2:    admin.Admin2,
-		UpdatedAt: updated,
+		Countries:       countries,
+		CountriesByCode: byCode,
+		Cities:          cities,
+		KDTree:          geocode.BuildKDTree(cities),
+		Admin1:          admin.Admin1,
+		Admin2:          admin.Admin2,
+		UpdatedAt:       updated,
 	}, nil
 }
 

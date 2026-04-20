@@ -141,8 +141,8 @@ func TestApplyChinaSARTransformHongKong(t *testing.T) {
 	assert.Equal(t, "中华人民共和国", resp.Country.Name.Zh)
 
 	// SAR name takes admin1; original admin1 (district) drops to admin2
-	assert.Equal(t, "Hong Kong", resp.Admin1.En)
-	assert.Equal(t, "香港", resp.Admin1.Zh)
+	assert.Equal(t, "Hong Kong Special Administrative Region", resp.Admin1.En)
+	assert.Equal(t, "香港特别行政区", resp.Admin1.Zh)
 	assert.Equal(t, "Kwun Tong District", resp.Admin2.En)
 	assert.Equal(t, "观塘", resp.Admin2.Zh)
 

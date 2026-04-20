@@ -75,6 +75,18 @@ func TestFilterAlternateNamesSkipsTraditionalInFavorOfSimplified(t *testing.T) {
 	assert.Equal(t, "某镇", out[4000001])
 }
 
+func TestFilterAlternateNamesStripsOrArtefact(t *testing.T) {
+	f, err := os.Open("testdata/alternate_names_sample.txt")
+	require.NoError(t, err)
+	defer f.Close()
+
+	// GeoNames occasionally stores values like "台湾省 or 台湾省" literally.
+	// We want the first segment after trimming.
+	out, err := FilterAlternateNamesByLang(f, "zh", map[uint32]bool{5000000: true})
+	require.NoError(t, err)
+	assert.Equal(t, "台湾省", out[5000000])
+}
+
 func TestFilterAlternateNamesLangPriorityThenPreferred(t *testing.T) {
 	f, err := os.Open("testdata/alternate_names_sample.txt")
 	require.NoError(t, err)
