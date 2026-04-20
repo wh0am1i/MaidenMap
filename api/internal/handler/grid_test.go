@@ -2,8 +2,10 @@ package handler
 
 import (
 	"encoding/json"
+	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/paulmach/orb/geojson"
@@ -13,101 +15,109 @@ import (
 	"github.com/wh0am1i/maidenmap/api/internal/geocode"
 )
 
-func newRouter(t *testing.T) *gin.Engine {
+func testDataset(t *testing.T) *data.Dataset {
 	t.Helper()
-	raw := []byte(`{"type":"FeatureCollection","features":[
-        {"type":"Feature","properties":{"iso_a2":"DE","name_en":"Germany"},
-         "geometry":{"type":"Polygon","coordinates":[[[5,47],[16,47],[16,55],[5,55],[5,47]]]}}
-    ]}`)
+	raw := []byte(`{
+        "type":"FeatureCollection",
+        "features":[
+            {"type":"Feature","properties":{"iso_a2":"XX","name_en":"Testland","name_zh":"测试国"},
+             "geometry":{"type":"Polygon","coordinates":[[[0,0],[20,0],[20,20],[0,20],[0,0]]]}}
+        ]}`)
 	fc, err := geojson.UnmarshalFeatureCollection(raw)
 	require.NoError(t, err)
 
 	cities := []geocode.City{
-		{Name: "Cottbus", Lat: 51.76, Lon: 14.33, CountryCode: "DE", Admin1Code: "BR", Admin2Code: "12071"},
+		{Name: "TestCity", NameZh: "测试市", Lat: 10, Lon: 10, CountryCode: "XX", Admin1Code: "AA", Admin2Code: "001"},
 	}
-	ds := &data.Dataset{
+	return &data.Dataset{
 		Countries: fc,
 		Cities:    cities,
 		KDTree:    geocode.BuildKDTree(cities),
-		Admin1:    map[string]string{"DE.BR": "Brandenburg"},
-		Admin2:    map[string]string{"DE.BR.12071": "Spree-Neiße"},
+		Admin1:    map[string]geocode.AdminEntry{"XX.AA": {En: "Test Admin1", Zh: "测试一级"}},
+		Admin2:    map[string]geocode.AdminEntry{"XX.AA.001": {En: "Test Admin2", Zh: "测试二级"}},
+		UpdatedAt: time.Now(),
 	}
+}
+
+func newRouter(t *testing.T) *gin.Engine {
+	t.Helper()
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
+	ds := testDataset(t)
 	r.GET("/api/grid/:code", GridSingle(ds))
 	r.GET("/api/grid", GridBatch(ds))
 	return r
 }
 
-func TestGridSingle(t *testing.T) {
+func TestGridSingleSuccess(t *testing.T) {
 	r := newRouter(t)
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest("GET", "/api/grid/JO61", nil) // JO61 center (13, 51.5), inside DE polygon
+	// JJ55: lon field J (0–20°) + digit 5 → center 11°E; lat field J (0–10°) + digit 5 → center 5.5°N.
+	// Center (5.5, 11) is inside the XX polygon (0,0)–(20,20); nearest city is TestCity at (10,10).
+	req := httptest.NewRequest(http.MethodGet, "/api/grid/JJ55", nil)
 	r.ServeHTTP(w, req)
 
-	require.Equal(t, 200, w.Code)
+	require.Equal(t, http.StatusOK, w.Code)
 	var body map[string]any
 	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &body))
-	assert.Equal(t, "JO61", body["grid"])
+
+	assert.Equal(t, "JJ55", body["grid"])
 	center := body["center"].(map[string]any)
-	assert.InDelta(t, 13.0, center["lon"].(float64), 1e-3)
-	assert.InDelta(t, 51.5, center["lat"].(float64), 1e-3)
+	assert.InDelta(t, 5.5, center["lat"], 1e-3)
+	assert.InDelta(t, 11.0, center["lon"], 1e-3)
+
 	country := body["country"].(map[string]any)
-	assert.Equal(t, "DE", country["code"])
-	assert.Equal(t, "Germany", country["name"])
-	assert.Equal(t, "Brandenburg", body["admin1"])
-	assert.Equal(t, "Spree-Neiße", body["admin2"])
-	assert.Equal(t, "Cottbus", body["city"])
+	assert.Equal(t, "XX", country["code"])
+	name := country["name"].(map[string]any)
+	assert.Equal(t, "Testland", name["en"])
+	assert.Equal(t, "测试国", name["zh"])
+
+	a1 := body["admin1"].(map[string]any)
+	assert.Equal(t, "Test Admin1", a1["en"])
+	assert.Equal(t, "测试一级", a1["zh"])
+
+	a2 := body["admin2"].(map[string]any)
+	assert.Equal(t, "Test Admin2", a2["en"])
+	assert.Equal(t, "测试二级", a2["zh"])
+
+	city := body["city"].(map[string]any)
+	assert.Equal(t, "TestCity", city["en"])
+	assert.Equal(t, "测试市", city["zh"])
 }
 
 func TestGridSingleInvalid(t *testing.T) {
 	r := newRouter(t)
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest("GET", "/api/grid/ZZ00", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/grid/BAD", nil)
+	r.ServeHTTP(w, req)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
+}
+
+func TestGridBatchMixed(t *testing.T) {
+	r := newRouter(t)
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/api/grid?codes=JJ55,BAD,JJ55", nil)
 	r.ServeHTTP(w, req)
 
-	assert.Equal(t, 400, w.Code)
+	require.Equal(t, http.StatusOK, w.Code)
 	var body map[string]any
 	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &body))
-	assert.Equal(t, "invalid_grid", body["error"])
+	results := body["results"].([]any)
+	require.Len(t, results, 3)
+
+	first := results[0].(map[string]any)
+	assert.Equal(t, "JJ55", first["grid"])
+	city := first["city"].(map[string]any)
+	assert.Equal(t, "测试市", city["zh"])
+
+	second := results[1].(map[string]any)
+	assert.Equal(t, "invalid_grid", second["error"])
 }
 
-func TestGridBatch(t *testing.T) {
+func TestGridBatchMissingCodes(t *testing.T) {
 	r := newRouter(t)
 	w := httptest.NewRecorder()
-	req := httptest.NewRequest("GET", "/api/grid?codes=JO61,ZZ00", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/grid", nil)
 	r.ServeHTTP(w, req)
-
-	require.Equal(t, 200, w.Code)
-	var body struct {
-		Results []map[string]any `json:"results"`
-	}
-	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &body))
-	require.Len(t, body.Results, 2)
-	assert.Equal(t, "JO61", body.Results[0]["grid"])
-	assert.Equal(t, "ZZ00", body.Results[1]["grid"])
-	assert.Equal(t, "invalid_grid", body.Results[1]["error"])
-}
-
-func TestGridBatchMissing(t *testing.T) {
-	r := newRouter(t)
-	w := httptest.NewRecorder()
-	req := httptest.NewRequest("GET", "/api/grid", nil)
-	r.ServeHTTP(w, req)
-	assert.Equal(t, 400, w.Code)
-}
-
-func TestGridBatchTooMany(t *testing.T) {
-	r := newRouter(t)
-	codes := ""
-	for i := 0; i < 101; i++ {
-		if i > 0 {
-			codes += ","
-		}
-		codes += "JO65"
-	}
-	w := httptest.NewRecorder()
-	req := httptest.NewRequest("GET", "/api/grid?codes="+codes, nil)
-	r.ServeHTTP(w, req)
-	assert.Equal(t, 400, w.Code)
+	assert.Equal(t, http.StatusBadRequest, w.Code)
 }

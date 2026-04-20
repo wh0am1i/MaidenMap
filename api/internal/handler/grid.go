@@ -13,13 +13,9 @@ import (
 
 const maxBatchSize = 100
 
-type gridResponse struct {
-	Grid    string       `json:"grid"`
-	Center  centerResp   `json:"center"`
-	Country *countryResp `json:"country"`
-	Admin1  string       `json:"admin1"`
-	Admin2  string       `json:"admin2"`
-	City    string       `json:"city"`
+type biName struct {
+	En string `json:"en"`
+	Zh string `json:"zh"`
 }
 
 type centerResp struct {
@@ -29,7 +25,16 @@ type centerResp struct {
 
 type countryResp struct {
 	Code string `json:"code"`
-	Name string `json:"name"`
+	Name biName `json:"name"`
+}
+
+type gridResponse struct {
+	Grid    string       `json:"grid"`
+	Center  centerResp   `json:"center"`
+	Country *countryResp `json:"country"`
+	Admin1  biName       `json:"admin1"`
+	Admin2  biName       `json:"admin2"`
+	City    biName       `json:"city"`
 }
 
 type gridError struct {
@@ -94,12 +99,12 @@ func resolve(code string, g *geocode.Geocoder) (gridResponse, error) {
 	resp := gridResponse{
 		Grid:   loc.Grid,
 		Center: centerResp{Lat: round4(loc.Lat), Lon: round4(loc.Lon)},
-		Admin1: r.Admin1,
-		Admin2: r.Admin2,
-		City:   r.City,
+		Admin1: biName{En: r.Admin1.En, Zh: r.Admin1.Zh},
+		Admin2: biName{En: r.Admin2.En, Zh: r.Admin2.Zh},
+		City:   biName{En: r.CityName, Zh: r.CityNameZh},
 	}
 	if r.Country != nil {
-		resp.Country = &countryResp{Code: r.Country.Code, Name: r.Country.Name}
+		resp.Country = &countryResp{Code: r.Country.Code, Name: biName{En: r.Country.Name, Zh: r.Country.NameZh}}
 	}
 	return resp, nil
 }
