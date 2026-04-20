@@ -3,6 +3,7 @@ package geocode
 import (
 	"testing"
 
+	"github.com/paulmach/orb/geojson"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -49,6 +50,61 @@ func TestGeocodeNoCities(t *testing.T) {
 	require.NotNil(t, res.Country)
 	assert.Equal(t, "XX", res.Country.Code)
 	assert.Empty(t, res.CityName)
+}
+
+// For CN-family queries, DataV should override GeoNames for admin1, admin2
+// AND city — otherwise the "最近城市" field leaks wrong data (e.g. the grid
+// center sits in 西湖区/杭州市 but the nearest GeoNames city15000 is Fuyang).
+func TestGeocodeCNFamilyUsesDataVForCity(t *testing.T) {
+	cnCountries := []byte(`{
+        "type":"FeatureCollection",
+        "features":[
+            {"type":"Feature","properties":{"iso_a2":"CN","name_en":"China","name_zh":"中国"},
+             "geometry":{"type":"Polygon","coordinates":[[[100,20],[140,20],[140,50],[100,50],[100,20]]]}}
+        ]}`)
+	fc, err := geojson.UnmarshalFeatureCollection(cnCountries)
+	require.NoError(t, err)
+
+	// GeoNames nearest city to (30.15, 120.04) is Fuyang — which is what we
+	// must NOT end up emitting for CN.
+	cities := []City{{Name: "Fuyang", NameZh: "", Lat: 30.05, Lon: 119.96, CountryCode: "CN", Admin1Code: "02", Admin2Code: "0203"}}
+
+	// DataV: three-level hierarchy — 浙江省 → 杭州市 → 西湖区 — covering the query point.
+	dvRaw := []byte(`{
+        "type":"FeatureCollection",
+        "features":[
+            {"type":"Feature",
+             "properties":{"adcode":330000,"name":"浙江省","level":"province","parent":100000},
+             "geometry":{"type":"Polygon","coordinates":[[[118,28],[123,28],[123,32],[118,32],[118,28]]]}},
+            {"type":"Feature",
+             "properties":{"adcode":330100,"name":"杭州市","level":"city","parent":330000},
+             "geometry":{"type":"Polygon","coordinates":[[[119.5,29.5],[120.8,29.5],[120.8,30.6],[119.5,30.6],[119.5,29.5]]]}},
+            {"type":"Feature",
+             "properties":{"adcode":330106,"name":"西湖区","level":"district","parent":330100},
+             "geometry":{"type":"Polygon","coordinates":[[[119.9,30.0],[120.2,30.0],[120.2,30.3],[119.9,30.3],[119.9,30.0]]]}}
+        ]}`)
+	dvFC, err := geojson.UnmarshalFeatureCollection(dvRaw)
+	require.NoError(t, err)
+
+	g := &Geocoder{
+		Countries:       fc,
+		CountriesByCode: map[string]Country{"CN": {Code: "CN", Name: "China", NameZh: "中国"}},
+		DataV:           BuildDataVIndex(dvFC),
+		KDTree:          BuildKDTree(cities),
+		Admin1:          map[string]AdminEntry{"CN.02": {En: "Zhejiang", Zh: ""}},
+		Admin2:          map[string]AdminEntry{"CN.02.0203": {En: "Fuyang", Zh: ""}},
+	}
+
+	res := g.Lookup(30.15, 120.04)
+	require.NotNil(t, res.Country)
+	assert.Equal(t, "CN", res.Country.Code)
+	assert.True(t, res.UsedDataV, "DataV should have hit for this CN point")
+	assert.Equal(t, "浙江省", res.Admin1.Zh)
+	assert.Equal(t, "Zhejiang", res.Admin1.En)
+	assert.Equal(t, "西湖区", res.Admin2.Zh)
+	// City must follow DataV — not GeoNames' Fuyang.
+	assert.Equal(t, "杭州市", res.CityNameZh)
+	assert.Empty(t, res.CityName, "no English for DataV city layer")
 }
 
 // Polygon lookup misses (offshore) but nearest city has a country code —

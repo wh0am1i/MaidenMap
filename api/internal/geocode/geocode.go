@@ -68,6 +68,16 @@ func (g *Geocoder) Lookup(lat, lon float64) Result {
 			default:
 				res.Admin2 = AdminEntry{}
 			}
+			// "最近城市" on mainland CN follows DataV too — GeoNames' nearest
+			// point can sit in a different administrative city (PM00ad's
+			// nearest GeoNames city is Fuyang, but the grid center is in
+			// 杭州市 / 西湖区). HK/MO/TW have no DataV city level; keep the
+			// GeoNames nearest city there (愉景湾, 大堂区, 台北市) rather
+			// than duplicating admin2/admin1.
+			if dv.City != "" {
+				res.CityName = ""
+				res.CityNameZh = dv.City
+			}
 			res.UsedDataV = true
 		}
 	}
