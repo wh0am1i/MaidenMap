@@ -1,4 +1,4 @@
 {
-  "admin1": { "XX.AA": "Test Admin1" },
-  "admin2": { "XX.AA.001": "Test Admin2" }
+  "admin1": { "XX.AA": { "en": "Test Admin1", "zh": "测试一级" } },
+  "admin2": { "XX.AA.001": { "en": "Test Admin2", "zh": "测试二级" } }
 }

@@ -17,17 +17,17 @@ type Dataset struct {
 	Countries *geojson.FeatureCollection
 	Cities    []geocode.City
 	KDTree    *geocode.KDTree
-	Admin1    map[string]string // "US.CA" -> "California"
-	Admin2    map[string]string // "US.CA.037" -> "Los Angeles"
-	UpdatedAt time.Time         // latest mtime of the three files
+	Admin1    map[string]geocode.AdminEntry // "US.CA" -> {En, Zh}
+	Admin2    map[string]geocode.AdminEntry // "US.CA.037" -> {En, Zh}
+	UpdatedAt time.Time                     // latest mtime of the three files
 }
 
 // CityCount returns the number of cities loaded.
 func (d *Dataset) CityCount() int { return len(d.Cities) }
 
 type adminCodes struct {
-	Admin1 map[string]string `json:"admin1"`
-	Admin2 map[string]string `json:"admin2"`
+	Admin1 map[string]geocode.AdminEntry `json:"admin1"`
+	Admin2 map[string]geocode.AdminEntry `json:"admin2"`
 }
 
 // Load reads countries.geojson, cities.bin, admin_codes.json from dir.

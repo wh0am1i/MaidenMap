@@ -23,7 +23,7 @@ func TestLoadFromDir(t *testing.T) {
 	f, err := os.Create(filepath.Join(dir, "cities.bin"))
 	require.NoError(t, err)
 	require.NoError(t, geocode.WriteCitiesBin(f, []geocode.City{
-		{Name: "TestCity", Lat: 5, Lon: 5, CountryCode: "XX", Admin1Code: "AA", Admin2Code: "001"},
+		{Name: "TestCity", NameZh: "测试市", Lat: 5, Lon: 5, CountryCode: "XX", Admin1Code: "AA", Admin2Code: "001"},
 		{Name: "Other", Lat: 50, Lon: 50, CountryCode: "YY"},
 	}))
 	require.NoError(t, f.Close())
@@ -31,10 +31,13 @@ func TestLoadFromDir(t *testing.T) {
 	ds, err := Load(dir)
 	require.NoError(t, err)
 	assert.Len(t, ds.Cities, 2)
+	assert.Equal(t, "测试市", ds.Cities[0].NameZh)
 	assert.Equal(t, 1, len(ds.Countries.Features))
 	assert.NotNil(t, ds.KDTree)
-	assert.Equal(t, "Test Admin1", ds.Admin1["XX.AA"])
-	assert.Equal(t, "Test Admin2", ds.Admin2["XX.AA.001"])
+	assert.Equal(t, "Test Admin1", ds.Admin1["XX.AA"].En)
+	assert.Equal(t, "测试一级", ds.Admin1["XX.AA"].Zh)
+	assert.Equal(t, "Test Admin2", ds.Admin2["XX.AA.001"].En)
+	assert.Equal(t, "测试二级", ds.Admin2["XX.AA.001"].Zh)
 	assert.False(t, ds.UpdatedAt.IsZero())
 	assert.Equal(t, 2, ds.CityCount())
 }
