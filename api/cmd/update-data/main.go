@@ -12,6 +12,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/longbridgeapp/opencc"
 	"github.com/wh0am1i/maidenmap/api/internal/geocode"
 	"github.com/wh0am1i/maidenmap/api/internal/updatedata"
 )
@@ -20,7 +21,7 @@ const (
 	defaultCitiesURL         = "https://download.geonames.org/export/dump/cities15000.zip"
 	defaultAdmin1URL         = "https://download.geonames.org/export/dump/admin1CodesASCII.txt"
 	defaultAdmin2URL         = "https://download.geonames.org/export/dump/admin2Codes.txt"
-	defaultCountriesURL      = "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_50m_admin_0_countries.geojson"
+	defaultCountriesURL      = "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_10m_admin_0_countries.geojson"
 	defaultAlternateNamesURL = "https://download.geonames.org/export/dump/alternateNamesV2.zip"
 
 	minCities    = 10000
@@ -132,6 +133,38 @@ func main() {
 		fatal("filter alt-names", err)
 	}
 	slog.Info("filtered zh names", "count", len(zhByID))
+
+	// GeoNames tags some Traditional Chinese names as plain "zh", so the
+	// filter alone can't guarantee Simplified output. Run everything through
+	// OpenCC t2s; converting already-Simplified text is idempotent.
+	t2s, err := opencc.New("t2s")
+	if err != nil {
+		fatal("init opencc t2s", err)
+	}
+	converted := 0
+	for id, name := range zhByID {
+		out, err := t2s.Convert(name)
+		if err != nil || out == "" {
+			continue
+		}
+		if out != name {
+			converted++
+		}
+		zhByID[id] = out
+	}
+	slog.Info("converted zh to simplified", "changed", converted)
+
+	// Also run country name_zh through t2s (Natural Earth is mostly Simplified
+	// but not guaranteed; HK/MO/TW overrides are already Simplified — idempotent).
+	for _, feat := range fc.Features {
+		nz, ok := feat.Properties["name_zh"].(string)
+		if !ok || nz == "" {
+			continue
+		}
+		if out, err := t2s.Convert(nz); err == nil && out != "" {
+			feat.Properties["name_zh"] = out
+		}
+	}
 
 	cities := make([]geocode.City, 0, len(cityEntries))
 	for _, ce := range cityEntries {
