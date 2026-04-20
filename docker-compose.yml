@@ -1,6 +1,11 @@
+# Explicit project name so `image:` references below are stable regardless
+# of the directory the compose file lives in.
+name: maidenmap
+
 services:
   api:
     build: ./api
+    image: maidenmap-api:latest
     command: >
       /usr/local/bin/maidenmap-server
       --data-dir=/data
@@ -14,14 +19,19 @@ services:
 
   web:
     build: ./web
+    image: maidenmap-web:latest
     ports:
       - "127.0.0.1:8081:80"
     restart: unless-stopped
     depends_on:
       - api
 
+  # update-data reuses the api service's image — same Dockerfile, same binary,
+  # just a different entrypoint. Run `docker compose build api` (or plain
+  # `docker compose build`) first; then `compose run update-data` picks up
+  # whatever was built for api.
   update-data:
-    build: ./api
+    image: maidenmap-api:latest
     entrypoint: /usr/local/bin/maidenmap-update-data
     command: --data-dir=/data
     volumes:

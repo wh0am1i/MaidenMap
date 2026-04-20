@@ -214,6 +214,10 @@ server {
 ## 数据更新
 
 ```bash
+# 代码有更新的情况下，先重建镜像
+git pull
+docker compose build
+
 # 重新拉取最新 GeoNames + Natural Earth 数据
 docker compose --profile update run --rm update-data
 
@@ -221,9 +225,11 @@ docker compose --profile update run --rm update-data
 docker compose restart api
 ```
 
+`update-data` 服务复用 `api` 的镜像（同一个 Dockerfile 和二进制，只是换了 entrypoint），所以 `docker compose build` 一次就够。如果只改数据、没改代码，`build` 那步可以省掉。
+
 数据源：
 - GeoNames cities15000、admin1CodesASCII、admin2Codes、alternateNamesV2（中文名）—— CC-BY
-- Natural Earth `ne_50m_admin_0_countries.geojson` —— Public Domain
+- Natural Earth `ne_10m_admin_0_countries.geojson` —— Public Domain（含 HK/MO/TW 独立多边形）
 
 ## 本地开发
 
