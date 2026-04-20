@@ -1,3 +1,41 @@
-:root {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --bg: 255 255 255;
+    --panel: 250 250 250;
+    --panel-2: 245 245 247;
+    --border: 220 220 225;
+    --text: 14 17 23;
+    --dim: 100 110 125;
+    --dimmer: 150 155 165;
+    --ham: 230 116 58;
+    --ham-glow: 230 116 58;
+    --accent: 34 160 80;
+    --danger: 220 60 60;
+
+    color: rgb(var(--text));
+    background: rgb(var(--bg));
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  }
+
+  .dark {
+    --bg: 14 17 23;
+    --panel: 22 27 34;
+    --panel-2: 28 33 40;
+    --border: 48 54 61;
+    --text: 230 237 243;
+    --dim: 139 148 158;
+    --dimmer: 110 118 129;
+    --ham: 255 140 66;
+    --ham-glow: 255 140 66;
+    --accent: 63 185 80;
+    --danger: 248 81 73;
+  }
+
+  body {
+    background: rgb(var(--bg));
+    color: rgb(var(--text));
+    min-height: 100vh;
+  }
 }
