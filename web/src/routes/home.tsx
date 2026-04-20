@@ -51,15 +51,15 @@ export default function Home() {
   const defaultZoom = parsedOk ? (parsedOk.length === 8 ? 12 : parsedOk.length === 6 ? 8 : 4) : 2;
 
   return (
-    <div className="grid h-full min-h-0 md:grid-cols-[360px_1fr] grid-cols-1">
-      <div className="border-r border-border bg-[rgb(var(--panel))] overflow-hidden min-h-0">
+    <div className="flex flex-col md:grid md:grid-cols-[360px_1fr] h-full min-h-0">
+      <div className="order-2 md:order-1 md:h-full border-t md:border-t-0 md:border-r border-border bg-[rgb(var(--panel))] overflow-hidden min-h-0">
         {tab === "single" ? (
           <SingleQueryPanel code={code} onCodeChange={setCode} />
         ) : (
           <BatchQueryPanel activeGrid={activeBatchGrid} onActiveChange={setActiveBatchGrid} />
         )}
       </div>
-      <div className="min-h-[50vh] md:min-h-0">
+      <div className="order-1 md:order-2 h-[45vh] md:h-full">
         <MapView provider={provider} center={defaultCenter} zoom={defaultZoom}>
           {tab === "single" && parsedOk && <GridOverlay grid={parsedOk} fitOnMount />}
           {tab === "batch" && pins.length > 0 && (

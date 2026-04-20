@@ -39,7 +39,14 @@ export function SingleQueryPanel({
       {query.isError && (
         <p className="text-sm text-[rgb(var(--danger))]">{String(query.error?.message ?? "error")}</p>
       )}
-      <History items={items} onPick={onCodeChange} onClear={history.clear} />
+      <details open>
+        <summary className="cursor-pointer text-xs uppercase tracking-wider text-[rgb(var(--dim))] md:hidden">
+          {`${history.entries.length} history`}
+        </summary>
+        <div className="mt-2 md:mt-0">
+          <History items={items} onPick={onCodeChange} onClear={history.clear} />
+        </div>
+      </details>
     </div>
   );
 }
