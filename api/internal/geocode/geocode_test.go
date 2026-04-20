@@ -102,9 +102,12 @@ func TestGeocodeCNFamilyUsesDataVForCity(t *testing.T) {
 	assert.Equal(t, "浙江省", res.Admin1.Zh)
 	assert.Equal(t, "Zhejiang", res.Admin1.En)
 	assert.Equal(t, "西湖区", res.Admin2.Zh)
-	// City must follow DataV — not GeoNames' Fuyang.
+	// City must follow DataV — not GeoNames' Fuyang. English is the pinyin
+	// romanization of the Chinese city (the standard international form).
 	assert.Equal(t, "杭州市", res.CityNameZh)
-	assert.Empty(t, res.CityName, "no English for DataV city layer")
+	assert.Equal(t, "Hangzhou", res.CityName)
+	// Same for admin2 — pinyin-derived English with "District" suffix.
+	assert.Equal(t, "Xihu District", res.Admin2.En)
 }
 
 // Polygon lookup misses (offshore) but nearest city has a country code —

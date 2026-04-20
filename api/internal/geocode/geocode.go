@@ -59,12 +59,19 @@ func (g *Geocoder) Lookup(lat, lon float64) Result {
 
 	if res.Country != nil && cnFamily[res.Country.Code] && g.DataV != nil {
 		if dv, ok := g.DataV.Lookup(lat, lon); ok {
-			res.Admin1 = AdminEntry{Zh: dv.Province, En: ProvinceEn(dv.Province)}
+			// Admin1 English prefers the curated provinceEnByZh table
+			// (keeps "Inner Mongolia" / "Tibet" / SAR full names). Falls
+			// back to pinyin for anything not in the table.
+			a1En := ProvinceEn(dv.Province)
+			if a1En == "" {
+				a1En = chineseToEn(dv.Province)
+			}
+			res.Admin1 = AdminEntry{Zh: dv.Province, En: a1En}
 			switch {
 			case dv.District != "":
-				res.Admin2 = AdminEntry{Zh: dv.District}
+				res.Admin2 = AdminEntry{Zh: dv.District, En: chineseToEn(dv.District)}
 			case dv.City != "":
-				res.Admin2 = AdminEntry{Zh: dv.City}
+				res.Admin2 = AdminEntry{Zh: dv.City, En: chineseToEn(dv.City)}
 			default:
 				res.Admin2 = AdminEntry{}
 			}
@@ -75,7 +82,7 @@ func (g *Geocoder) Lookup(lat, lon float64) Result {
 			// GeoNames nearest city there (愉景湾, 大堂区, 台北市) rather
 			// than duplicating admin2/admin1.
 			if dv.City != "" {
-				res.CityName = ""
+				res.CityName = chineseToEn(dv.City)
 				res.CityNameZh = dv.City
 			}
 			res.UsedDataV = true
