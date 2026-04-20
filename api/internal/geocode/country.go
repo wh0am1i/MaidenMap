@@ -8,12 +8,14 @@ import (
 
 // Country is the result of a point-in-polygon lookup.
 type Country struct {
-	Code string
-	Name string
+	Code   string
+	Name   string // English
+	NameZh string // Chinese (may be empty)
 }
 
 // LookupCountry returns the country whose polygon contains (lat, lon).
-// The feature collection must have features with `iso_a2` and `name_en` properties.
+// The feature collection must have features with `iso_a2`, `name_en`, and
+// optionally `name_zh` properties.
 func LookupCountry(fc *geojson.FeatureCollection, lat, lon float64) (Country, bool) {
 	pt := orb.Point{lon, lat} // orb uses [lon, lat]
 	for _, f := range fc.Features {
@@ -21,8 +23,9 @@ func LookupCountry(fc *geojson.FeatureCollection, lat, lon float64) (Country, bo
 			continue
 		}
 		return Country{
-			Code: stringProp(f.Properties, "iso_a2"),
-			Name: stringProp(f.Properties, "name_en"),
+			Code:   stringProp(f.Properties, "iso_a2"),
+			Name:   stringProp(f.Properties, "name_en"),
+			NameZh: stringProp(f.Properties, "name_zh"),
 		}, true
 	}
 	return Country{}, false
