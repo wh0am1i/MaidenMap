@@ -213,19 +213,21 @@ server {
 
 ## 数据更新
 
+只改数据（不 `git pull`）：
 ```bash
-# 代码有更新的情况下，先重建镜像
-git pull
-docker compose build
-
-# 重新拉取最新 GeoNames + Natural Earth + DataV 数据
 docker compose --profile update run --rm update-data
-
-# 数据写入 ./data/（原子写，服务不用重启，但要重启才会重新加载）
-docker compose restart api
+docker compose restart api     # 原子写 + restart 让进程重新加载 ./data
 ```
 
-`update-data` 服务复用 `api` 的镜像（同一个 Dockerfile 和二进制，只是换了 entrypoint），所以 `docker compose build` 一次就够。如果只改数据、没改代码，`build` 那步可以省掉。
+有代码更新时：
+```bash
+git pull
+docker compose build api
+docker compose --profile update run --rm update-data
+docker compose up -d api       # 注意是 up -d，不是 restart：换容器才能换二进制
+```
+
+`update-data` 服务复用 `api` 的镜像（同一个 Dockerfile 和二进制，只是换了 entrypoint），`build` 一次两边都拿到新代码。`run --rm` 每次起新容器所以直接就是最新镜像；但长驻的 `api` 容器 `restart` 只重启进程、不换镜像，必须 `up -d` 才会检测到镜像更新并 recreate。
 
 数据源：
 - **GeoNames** cities15000、admin1CodesASCII、admin2Codes、alternateNamesV2（中文名）—— CC-BY
