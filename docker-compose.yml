@@ -1,0 +1,29 @@
+services:
+  api:
+    build: ./api
+    command: >
+      /usr/local/bin/maidenmap-server
+      --data-dir=/data
+      --addr=:8080
+      --trusted-proxies=172.16.0.0/12
+    volumes:
+      - ./data:/data:ro
+    ports:
+      - "127.0.0.1:8080:8080"
+    restart: unless-stopped
+
+  web:
+    build: ./web
+    ports:
+      - "127.0.0.1:8081:80"
+    restart: unless-stopped
+    depends_on:
+      - api
+
+  update-data:
+    build: ./api
+    entrypoint: /usr/local/bin/maidenmap-update-data
+    command: --data-dir=/data
+    volumes:
+      - ./data:/data
+    profiles: ["update"]
