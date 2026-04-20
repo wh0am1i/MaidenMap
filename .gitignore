@@ -1,0 +1,6 @@
+# Runtime data
+/data/*
+!/data/.gitkeep
+
+# OS
+.DS_Store
