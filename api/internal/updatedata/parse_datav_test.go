@@ -117,25 +117,84 @@ func TestFetchDataVChinaHandlesStringAdcodeMarker(t *testing.T) {
 }
 
 func TestFetchDataVChinaContinuesOnChildError(t *testing.T) {
-	// Simulate Taiwan: country returns it, but the drill _full returns 404.
-	// We must not fail the whole run; we just log and keep the province node.
+	// Simulate the real-world pattern: most provinces drill fine, TW 710000
+	// has no _full and 404s. That single failure must not abort the run —
+	// 1 fail out of 6 issued level-2 fetches = 16.7 %, under the 20 % cap.
 	handler := func(w http.ResponseWriter, r *http.Request) {
 		path := r.URL.Path
-		if path == "/100000_full.json" {
+		switch path {
+		case "/100000_full.json":
 			writeFC(w, []stubFeature{
 				{adcode: 710000, name: "台湾省", level: "province", children: 1, parent: 100000},
+				{adcode: 110000, name: "北京市", level: "province", children: 1, parent: 100000},
+				{adcode: 120000, name: "天津市", level: "province", children: 1, parent: 100000},
+				{adcode: 130000, name: "河北省", level: "province", children: 1, parent: 100000},
+				{adcode: 140000, name: "山西省", level: "province", children: 1, parent: 100000},
+				{adcode: 150000, name: "内蒙古", level: "province", children: 1, parent: 100000},
 			})
-			return
+		case "/710000_full.json":
+			http.NotFound(w, r)
+		default:
+			// Return an empty children list so the drill succeeds cheaply.
+			writeFC(w, nil)
 		}
-		http.NotFound(w, r)
 	}
 	srv := httptest.NewServer(http.HandlerFunc(handler))
 	defer srv.Close()
 
-	nodes, err := FetchDataVChina(srv.URL, 2)
+	nodes, err := FetchDataVChina(srv.URL, 3)
 	require.NoError(t, err)
-	assert.Len(t, nodes, 1)
-	assert.Equal(t, "台湾省", nodes[0].Name)
+	// 6 province nodes kept; TW produced no children but the province itself
+	// still shows up from level 1.
+	assert.Len(t, nodes, 6)
+}
+
+func TestFetchDataVChinaAbortsWhenFailureRateHigh(t *testing.T) {
+	// 5 provinces with children → 5 level-2 fetches. 4 of them 500 → 80 %
+	// failure rate, well over the 20 % ceiling. The function should error
+	// instead of returning a mostly-empty node list.
+	handler := func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/100000_full.json" {
+			writeFC(w, []stubFeature{
+				{adcode: 110000, name: "P1", level: "province", children: 1, parent: 100000},
+				{adcode: 120000, name: "P2", level: "province", children: 1, parent: 100000},
+				{adcode: 130000, name: "P3", level: "province", children: 1, parent: 100000},
+				{adcode: 140000, name: "P4", level: "province", children: 1, parent: 100000},
+				{adcode: 150000, name: "P5", level: "province", children: 1, parent: 100000},
+			})
+			return
+		}
+		if r.URL.Path == "/110000_full.json" {
+			writeFC(w, []stubFeature{{adcode: 110100, name: "C", level: "city", parent: 110000}})
+			return
+		}
+		http.Error(w, "boom", 500)
+	}
+	srv := httptest.NewServer(http.HandlerFunc(handler))
+	defer srv.Close()
+
+	_, err := FetchDataVChina(srv.URL, 2)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "failure rate")
+	assert.Contains(t, err.Error(), "left in place")
+}
+
+func TestFetchDataVChinaRejectsOversizedBody(t *testing.T) {
+	orig := dataVMaxBodyBytes
+	dataVMaxBodyBytes = 64
+	t.Cleanup(func() { dataVMaxBodyBytes = orig })
+
+	handler := func(w http.ResponseWriter, r *http.Request) {
+		// Valid JSON shape but larger than the cap.
+		padding := strings.Repeat(" ", 200)
+		_, _ = w.Write([]byte(`{"type":"FeatureCollection","features":[]}` + padding))
+	}
+	srv := httptest.NewServer(http.HandlerFunc(handler))
+	defer srv.Close()
+
+	_, err := FetchDataVChina(srv.URL, 1)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "exceeds cap")
 }
 
 // --- helpers ---

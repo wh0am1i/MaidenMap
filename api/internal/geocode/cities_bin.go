@@ -8,6 +8,13 @@ import (
 
 const (
 	citiesBinVersion uint32 = 2
+	// maxCitiesCount bounds the count we read from a potentially corrupt
+	// cities.bin header before pre-allocating. The full GeoNames cities15000
+	// is ~33k entries and the schema reserves a uint32 for count. A corrupt
+	// value like 0xFFFFFFFF would otherwise trigger a ~200 GB allocation.
+	// 10 million leaves several orders of magnitude of headroom for future
+	// densification while catching obviously-wrong values early.
+	maxCitiesCount = 10_000_000
 )
 
 var citiesBinMagic = [4]byte{'M', 'M', 'C', 'B'}
@@ -98,6 +105,9 @@ func ReadCitiesBin(r io.Reader) ([]City, error) {
 	}
 	if err := binary.Read(r, binary.LittleEndian, &count); err != nil {
 		return nil, fmt.Errorf("read count: %w", err)
+	}
+	if count > maxCitiesCount {
+		return nil, fmt.Errorf("cities.bin count %d exceeds sanity cap %d (file likely corrupt)", count, maxCitiesCount)
 	}
 
 	cities := make([]City, 0, count)

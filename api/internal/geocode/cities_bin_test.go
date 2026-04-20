@@ -52,6 +52,15 @@ func TestCitiesBinBadVersion(t *testing.T) {
 	assert.Error(t, err)
 }
 
+func TestCitiesBinRejectsAbsurdCount(t *testing.T) {
+	// Magic + version 2 + count 0xFFFFFFFF. Without the cap this would
+	// attempt to pre-allocate ~200 GB.
+	data := []byte{'M', 'M', 'C', 'B', 2, 0, 0, 0, 0xFF, 0xFF, 0xFF, 0xFF}
+	_, err := ReadCitiesBin(bytes.NewReader(data))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "exceeds sanity cap")
+}
+
 func TestCitiesBinEmpty(t *testing.T) {
 	var buf bytes.Buffer
 	require.NoError(t, WriteCitiesBin(&buf, nil))

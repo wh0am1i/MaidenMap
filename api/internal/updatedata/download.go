@@ -6,15 +6,16 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 	"time"
 )
 
-// httpClient is tuned for the multi-gigabyte source files we pull (OSM China
-// extract ~1.5 GB, alternateNamesV2 ~500 MB). We bound the phases that should
-// be fast (dial, TLS, response-header) aggressively, but leave the body copy
-// with a generous overall ceiling so slow connections don't blow up mid-file.
+// httpClient is tuned for the multi-hundred-MB source files we pull
+// (alternateNamesV2 ~500 MB, cities15000 ~30 MB). Fast phases (dial, TLS,
+// response-header) are bound aggressively; the total ceiling is generous so
+// slow connections don't fail mid-file.
 var httpClient = &http.Client{
 	Timeout: 30 * time.Minute,
 	Transport: &http.Transport{
@@ -26,26 +27,51 @@ var httpClient = &http.Client{
 	},
 }
 
-// DownloadTo fetches url and writes the body to dst (overwriting). If url
-// starts with "file://" or looks like an absolute/relative filesystem path
-// (no scheme), it's treated as a local copy — useful when operators have
-// pre-downloaded the source via a faster channel.
-func DownloadTo(url, dst string) error {
-	if path, ok := localPath(url); ok {
-		return copyFile(path, dst)
+// maxDownloadBytes caps any single source download. The largest real source
+// today is alternateNamesV2 at ~500 MB; 2 GB leaves plenty of headroom while
+// bounding OOM / disk-fill risk from a compromised or misbehaving upstream
+// that streams arbitrary data into os.Create. Overridable in tests.
+var maxDownloadBytes int64 = 2 << 30 // 2 GiB
+
+// DownloadTo fetches url and writes the body to dst (overwriting).
+//
+// Supported schemes:
+//   - https:// — preferred for any remote source.
+//   - http://  — permitted for localhost/test servers; callers should use
+//     https for production sources.
+//   - file://  — local file copy, useful when operators have pre-downloaded
+//     a source via a faster channel. The path after file:// is resolved as-is.
+//
+// Bare paths ("/etc/passwd", "../secret") are rejected — operators who want
+// a local copy must spell it file:///path.
+func DownloadTo(rawURL, dst string) error {
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		return fmt.Errorf("parse url %q: %w", rawURL, err)
 	}
-	req, err := http.NewRequest("GET", url, nil)
+	switch u.Scheme {
+	case "file":
+		return copyFile(u.Path, dst)
+	case "http", "https":
+		return downloadHTTP(rawURL, dst)
+	default:
+		return fmt.Errorf("unsupported url scheme %q (want https / http / file)", u.Scheme)
+	}
+}
+
+func downloadHTTP(rawURL, dst string) error {
+	req, err := http.NewRequest("GET", rawURL, nil)
 	if err != nil {
 		return err
 	}
 	req.Header.Set("User-Agent", "maidenmap-update-data/1.0")
 	resp, err := httpClient.Do(req)
 	if err != nil {
-		return fmt.Errorf("GET %s: %w", url, err)
+		return fmt.Errorf("GET %s: %w", rawURL, err)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != 200 {
-		return fmt.Errorf("GET %s: status %d", url, resp.StatusCode)
+		return fmt.Errorf("GET %s: status %d", rawURL, resp.StatusCode)
 	}
 
 	f, err := os.Create(dst)
@@ -53,24 +79,28 @@ func DownloadTo(url, dst string) error {
 		return err
 	}
 	defer f.Close()
-	if _, err := io.Copy(f, resp.Body); err != nil {
+	// LimitReader + one extra byte lets us distinguish "exactly at cap" from
+	// "upstream kept streaming past the cap" and fail the latter.
+	n, err := io.Copy(f, io.LimitReader(resp.Body, maxDownloadBytes+1))
+	if err != nil {
 		return err
+	}
+	if n > maxDownloadBytes {
+		return fmt.Errorf("GET %s: body exceeds cap (%d bytes)", rawURL, maxDownloadBytes)
 	}
 	return nil
 }
 
-// localPath returns (path, true) if url points at a local file.
-func localPath(url string) (string, bool) {
-	switch {
-	case strings.HasPrefix(url, "file://"):
-		return strings.TrimPrefix(url, "file://"), true
-	case strings.HasPrefix(url, "/"), strings.HasPrefix(url, "./"), strings.HasPrefix(url, "../"):
-		return url, true
-	}
-	return "", false
-}
-
 func copyFile(src, dst string) error {
+	if src == "" {
+		return fmt.Errorf("file:// url missing path")
+	}
+	// Guard against obvious footguns; operators can still target arbitrary
+	// readable paths but at least can't pass a bare "/etc/passwd" that looked
+	// like a remote URL by accident.
+	if strings.ContainsRune(src, '\x00') {
+		return fmt.Errorf("invalid file path")
+	}
 	in, err := os.Open(src)
 	if err != nil {
 		return fmt.Errorf("open %s: %w", src, err)
