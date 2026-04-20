@@ -2,11 +2,17 @@
 package main
 
 import (
+	"context"
+	"errors"
 	"flag"
 	"log/slog"
+	"net/http"
 	"os"
+	"os/signal"
 	"strconv"
 	"strings"
+	"syscall"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/wh0am1i/maidenmap/api/internal/data"
@@ -46,11 +52,39 @@ func main() {
 	api.GET("/grid/:code", handler.GridSingle(ds))
 	api.GET("/grid", handler.GridBatch(ds))
 
-	slog.Info("listening", "addr", *addr)
-	if err := r.Run(*addr); err != nil {
-		slog.Error("server failed", "err", err)
+	// Explicit timeouts protect against slowloris and slow-client DoS.
+	// Defaults are zero (infinite) which is unsafe on the public internet.
+	srv := &http.Server{
+		Addr:              *addr,
+		Handler:           r,
+		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       10 * time.Second,
+		WriteTimeout:      10 * time.Second,
+		IdleTimeout:       120 * time.Second,
+		MaxHeaderBytes:    1 << 20, // 1 MiB
+	}
+
+	// Graceful shutdown on SIGINT / SIGTERM so in-flight requests complete.
+	shutdown := make(chan os.Signal, 1)
+	signal.Notify(shutdown, syscall.SIGINT, syscall.SIGTERM)
+
+	go func() {
+		slog.Info("listening", "addr", *addr)
+		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			slog.Error("server failed", "err", err)
+			os.Exit(1)
+		}
+	}()
+
+	<-shutdown
+	slog.Info("shutdown signal received")
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if err := srv.Shutdown(ctx); err != nil {
+		slog.Error("graceful shutdown failed", "err", err)
 		os.Exit(1)
 	}
+	slog.Info("bye")
 }
 
 func envDefault(key, def string) string {

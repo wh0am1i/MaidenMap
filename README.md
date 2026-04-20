@@ -157,15 +157,42 @@ curl "http://127.0.0.1:8180/api/grid?codes=JO65ab,OM89,BAD"
 
 ### 部署在主机 nginx 后
 
-容器只监听 `127.0.0.1`，需要主机 nginx 反代：
+容器只监听 `127.0.0.1`，需要主机 nginx 反代。下面是一份生产可用的最小配置，包含 TLS、HSTS、速率限制、超时和安全响应头：
 
 ```nginx
+# 定义一个给 /api 用的限流区（另一层防线，容器内 app 层还有 60 req/min/IP）
+limit_req_zone $binary_remote_addr zone=maidenmap_api:10m rate=120r/m;
+
+server_tokens off;
+
+server {
+    listen 80;
+    server_name maidenmap.example.com;
+    return 301 https://$host$request_uri;
+}
+
 server {
     listen 443 ssl http2;
     server_name maidenmap.example.com;
-    # ssl_certificate ...
+
+    ssl_certificate     /etc/letsencrypt/live/maidenmap.example.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/maidenmap.example.com/privkey.pem;
+    ssl_protocols       TLSv1.2 TLSv1.3;
+    ssl_ciphers         HIGH:!aNULL:!MD5;
+    ssl_prefer_server_ciphers on;
+
+    # 安全响应头
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+    add_header X-Content-Type-Options    "nosniff"   always;
+    add_header X-Frame-Options           "DENY"      always;
+    add_header Referrer-Policy           "strict-origin-when-cross-origin" always;
+
+    client_max_body_size 64k;          # 防大 body 攻击；API 请求远小于此
+    proxy_read_timeout   30s;
+    proxy_connect_timeout 5s;
 
     location /api/ {
+        limit_req zone=maidenmap_api burst=30 nodelay;
         proxy_pass         http://127.0.0.1:8180;
         proxy_set_header   Host              $host;
         proxy_set_header   X-Real-IP         $remote_addr;
@@ -175,11 +202,14 @@ server {
 
     location / {
         proxy_pass http://127.0.0.1:8081;
+        proxy_set_header Host $host;
     }
 }
 ```
 
-后端 `--trusted-proxies=172.16.0.0/12` 已配置信任 Docker 内部网络；如果主机 nginx 用了别的网段需要同步调整（或传真实 IP 进 `X-Real-IP`）。
+**`--trusted-proxies` 必须配对**：后端只在直连 peer 属于这个 CIDR 时才信 `X-Forwarded-For`；否则会 fallback 到直连 IP（防止攻击者直接打 API 并伪造 X-F-F 绕限流）。默认 `172.16.0.0/12` 覆盖 Docker 默认桥接网络；如果用 `network_mode: host` 或者主机 nginx 跑在容器外不同网段，要把对应地址加进去，比如 `--trusted-proxies=172.16.0.0/12,127.0.0.1/32`。
+
+**Web 容器自己也带了一套安全头**（CSP / X-Frame-Options / Referrer-Policy），主机 nginx 的 header 会被它的响应覆盖；两层同向设置是深度防御的正常做法，不冲突。
 
 ## 数据更新
 
