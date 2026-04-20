@@ -17,10 +17,11 @@ import (
 )
 
 const (
-	defaultCitiesURL    = "https://download.geonames.org/export/dump/cities15000.zip"
-	defaultAdmin1URL    = "https://download.geonames.org/export/dump/admin1CodesASCII.txt"
-	defaultAdmin2URL    = "https://download.geonames.org/export/dump/admin2Codes.txt"
-	defaultCountriesURL = "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_50m_admin_0_countries.geojson"
+	defaultCitiesURL         = "https://download.geonames.org/export/dump/cities15000.zip"
+	defaultAdmin1URL         = "https://download.geonames.org/export/dump/admin1CodesASCII.txt"
+	defaultAdmin2URL         = "https://download.geonames.org/export/dump/admin2Codes.txt"
+	defaultCountriesURL      = "https://raw.githubusercontent.com/nvkelso/natural-earth-vector/master/geojson/ne_50m_admin_0_countries.geojson"
+	defaultAlternateNamesURL = "https://download.geonames.org/export/dump/alternateNamesV2.zip"
 
 	minCities    = 10000
 	minCountries = 150
@@ -32,6 +33,7 @@ func main() {
 	admin1URL := flag.String("admin1-url", envDefault("ADMIN1_URL", defaultAdmin1URL), "")
 	admin2URL := flag.String("admin2-url", envDefault("ADMIN2_URL", defaultAdmin2URL), "")
 	countriesURL := flag.String("countries-url", envDefault("COUNTRIES_URL", defaultCountriesURL), "")
+	altNamesURL := flag.String("alt-names-url", envDefault("ALT_NAMES_URL", defaultAlternateNamesURL), "")
 	flag.Parse()
 
 	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, nil)))
@@ -58,6 +60,10 @@ func main() {
 	countriesPath := filepath.Join(tmp, "countries.geojson")
 	must(updatedata.DownloadTo(*countriesURL, countriesPath), "countries")
 
+	slog.Info("download", "what", "alt-names")
+	altZip := filepath.Join(tmp, "alternateNamesV2.zip")
+	must(updatedata.DownloadTo(*altNamesURL, altZip), "alt-names")
+
 	citiesTxt := filepath.Join(tmp, "cities15000.txt")
 	must(unzipSingle(citiesZip, "cities15000.txt", citiesTxt), "unzip cities")
 
@@ -65,25 +71,25 @@ func main() {
 	if err != nil {
 		fatal("open cities.txt", err)
 	}
-	cities, err := updatedata.ParseCitiesGeoNames(cf)
+	cityEntries, err := updatedata.ParseCitiesGeoNames(cf)
 	cf.Close()
 	if err != nil {
 		fatal("parse cities", err)
 	}
-	if len(cities) < minCities {
-		fatal("too few cities", fmt.Errorf("got %d, need >= %d", len(cities), minCities))
+	if len(cityEntries) < minCities {
+		fatal("too few cities", fmt.Errorf("got %d, need >= %d", len(cityEntries), minCities))
 	}
-	slog.Info("parsed cities", "count", len(cities))
+	slog.Info("parsed cities", "count", len(cityEntries))
 
-	a1, err := parseAdminFrom(admin1Path)
+	a1Raw, err := parseAdminFrom(admin1Path)
 	if err != nil {
 		fatal("parse admin1", err)
 	}
-	a2, err := parseAdminFrom(admin2Path)
+	a2Raw, err := parseAdminFrom(admin2Path)
 	if err != nil {
 		fatal("parse admin2", err)
 	}
-	slog.Info("parsed admin", "admin1", len(a1), "admin2", len(a2))
+	slog.Info("parsed admin", "admin1", len(a1Raw), "admin2", len(a2Raw))
 
 	countriesRaw, err := os.ReadFile(countriesPath)
 	if err != nil {
@@ -98,6 +104,53 @@ func main() {
 	}
 	slog.Info("parsed countries", "count", len(fc.Features))
 
+	wanted := make(map[uint32]bool, len(cityEntries)+len(a1Raw)+len(a2Raw))
+	for _, ce := range cityEntries {
+		wanted[ce.GeonameID] = true
+	}
+	for _, e := range a1Raw {
+		if e.GeonameID != 0 {
+			wanted[e.GeonameID] = true
+		}
+	}
+	for _, e := range a2Raw {
+		if e.GeonameID != 0 {
+			wanted[e.GeonameID] = true
+		}
+	}
+
+	altTxt := filepath.Join(tmp, "alternateNamesV2.txt")
+	must(unzipSingle(altZip, "alternateNamesV2.txt", altTxt), "unzip alt-names")
+
+	af, err := os.Open(altTxt)
+	if err != nil {
+		fatal("open alt-names.txt", err)
+	}
+	zhByID, err := updatedata.FilterAlternateNamesByLang(af, "zh", wanted)
+	af.Close()
+	if err != nil {
+		fatal("filter alt-names", err)
+	}
+	slog.Info("filtered zh names", "count", len(zhByID))
+
+	cities := make([]geocode.City, 0, len(cityEntries))
+	for _, ce := range cityEntries {
+		c := ce.City
+		if zh, ok := zhByID[ce.GeonameID]; ok {
+			c.NameZh = zh
+		}
+		cities = append(cities, c)
+	}
+
+	a1Final := make(map[string]geocode.AdminEntry, len(a1Raw))
+	for code, e := range a1Raw {
+		a1Final[code] = geocode.AdminEntry{En: e.Name, Zh: zhByID[e.GeonameID]}
+	}
+	a2Final := make(map[string]geocode.AdminEntry, len(a2Raw))
+	for code, e := range a2Raw {
+		a2Final[code] = geocode.AdminEntry{En: e.Name, Zh: zhByID[e.GeonameID]}
+	}
+
 	if err := os.MkdirAll(*dataDir, 0o755); err != nil {
 		fatal("mkdir data dir", err)
 	}
@@ -108,7 +161,7 @@ func main() {
 	}
 	must(atomicWrite(filepath.Join(*dataDir, "countries.geojson"), fcJSON), "write countries")
 
-	adminJSON, err := json.Marshal(map[string]any{"admin1": a1, "admin2": a2})
+	adminJSON, err := json.Marshal(map[string]any{"admin1": a1Final, "admin2": a2Final})
 	if err != nil {
 		fatal("marshal admin", err)
 	}
@@ -120,10 +173,20 @@ func main() {
 		fatal("write cities.bin", err)
 	}
 
-	slog.Info("update complete", "data_dir", *dataDir)
+	slog.Info("update complete", "data_dir", *dataDir, "cities_with_zh", countNonEmptyZh(cities))
 }
 
-func parseAdminFrom(path string) (map[string]string, error) {
+func countNonEmptyZh(cities []geocode.City) int {
+	n := 0
+	for _, c := range cities {
+		if c.NameZh != "" {
+			n++
+		}
+	}
+	return n
+}
+
+func parseAdminFrom(path string) (map[string]updatedata.AdminParseEntry, error) {
 	f, err := os.Open(path)
 	if err != nil {
 		return nil, err
