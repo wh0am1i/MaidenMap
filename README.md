@@ -1,27 +1,232 @@
 # MaidenMap
 
-Self-hosted reverse-geocode for HAM Maidenhead grid codes. Go + Gin backend, React 19 + Vite frontend, Docker Compose deploy behind an nginx reverse proxy.
+自托管的梅登海德网格码（Maidenhead Locator）反查地名服务，面向业余无线电（HAM）爱好者。
 
-## Quick start
+- **后端**：Go 1.26 + Gin，离线数据（GeoNames + Natural Earth）
+- **前端**：React 19 + Vite + TypeScript + shadcn/ui，中英双语，深/浅色跟随系统
+- **部署**：Docker Compose（api + web 两容器），前面可加主机 nginx 做 TLS 终止
+
+## 快速开始
 
 ```bash
-# First-time: fetch GeoNames + Natural Earth datasets into ./data (takes a few minutes)
+# 首次：拉取 GeoNames + Natural Earth 数据到 ./data（几分钟，约下载 500 MB）
 docker compose --profile update run --rm update-data
 
-# Run the stack
+# 启动栈
 docker compose up -d
 
-# Visit
-open http://127.0.0.1:8081/
-# API
-curl http://127.0.0.1:8080/api/grid/JO65ab
+# 打开
+open http://127.0.0.1:8081/        # 前端
+curl http://127.0.0.1:8180/api/grid/JO65ab    # 直连 API
+
+# 停止
+docker compose down
 ```
 
-## Host nginx
+本地端口：Web `127.0.0.1:8081`，API `127.0.0.1:8180`（默认 8080 被占用时可在 `docker-compose.yml` 调整）。
 
-The web and API containers bind to `127.0.0.1:8081` and `127.0.0.1:8080`. Front them with a host nginx that terminates TLS and routes `/api` → 8080, `/` → 8081.
+## HTTP API
 
-## Docs
+所有端点返回 JSON，编码 UTF-8，仅支持 GET。所有地名字段均为双语对象 `{en, zh}`；若无中文翻译，`zh` 为空串（不是 null）。
 
-- Design spec: [`docs/superpowers/specs/2026-04-20-maidenmap-design.md`](docs/superpowers/specs/2026-04-20-maidenmap-design.md)
-- Frontend spec: [`docs/superpowers/specs/2026-04-20-maidenmap-frontend-design.md`](docs/superpowers/specs/2026-04-20-maidenmap-frontend-design.md)
+### `GET /api/health`
+
+健康检查。返回数据集规模和最后更新时间，前端 topbar 的 `33.5k cities` 徽标也读这个端点。
+
+```bash
+curl http://127.0.0.1:8180/api/health
+```
+
+```json
+{
+  "status": "ok",
+  "cities_count": 33558,
+  "countries_count": 242,
+  "data_updated_at": "2026-04-20T07:21:52Z"
+}
+```
+
+### `GET /api/grid/:code`
+
+单个网格查询。`:code` 支持 4/6/8 位大小写混合输入（不区分大小写），例如 `JO65`、`JO65ab`、`JO65ab11`。
+
+```bash
+curl http://127.0.0.1:8180/api/grid/JO65ab
+```
+
+```json
+{
+  "grid": "JO65ab",
+  "center": { "lat": 55.0625, "lon": 12.0417 },
+  "country": {
+    "code": "DK",
+    "name": { "en": "Denmark", "zh": "丹麦" }
+  },
+  "admin1": { "en": "Zealand", "zh": "西兰大区" },
+  "admin2": { "en": "Vordingborg Kommune", "zh": "" },
+  "city":   { "en": "Vordingborg", "zh": "" }
+}
+```
+
+**字段含义**：
+- `grid` — 归一化后的网格码
+- `center.lat` / `center.lon` — 网格中心经纬度（WGS84，精度 4 位小数）
+- `country` — 通过点-多边形判断的国家；海洋或南极空缺时为 `null`
+- `admin1` / `admin2` — 最近城市所在的一级/二级行政区（与 country 不一致时丢弃 admin，避免边界误判）
+- `city` — 最近城市名（来自 GeoNames cities15000）
+
+**海洋点示例**（country 为 null）：
+
+```bash
+curl http://127.0.0.1:8180/api/grid/AA00
+```
+
+```json
+{
+  "grid": "AA00",
+  "center": { "lat": -89.5, "lon": -179 },
+  "country": null,
+  "admin1": { "en": "", "zh": "" },
+  "admin2": { "en": "", "zh": "" },
+  "city":   { "en": "McMurdo Station", "zh": "" }
+}
+```
+
+**错误 — 格式非法（HTTP 400）**：
+
+```bash
+curl -i http://127.0.0.1:8180/api/grid/BAD
+```
+
+```
+HTTP/1.1 400 Bad Request
+Content-Type: application/json
+
+{"error":"invalid_grid","message":"invalid length 3: must be 4, 6, or 8"}
+```
+
+### `GET /api/grid?codes=A,B,C`
+
+批量查询。最多 100 个代号，逗号分隔。成功项和错误项混合返回在同一数组里，靠 `error` 字段区分。
+
+```bash
+curl "http://127.0.0.1:8180/api/grid?codes=JO65ab,OM89,BAD"
+```
+
+```json
+{
+  "results": [
+    {
+      "grid": "JO65ab",
+      "center": { "lat": 55.0625, "lon": 12.0417 },
+      "country": { "code": "DK", "name": { "en": "Denmark", "zh": "丹麦" } },
+      "admin1": { "en": "Zealand", "zh": "西兰大区" },
+      "admin2": { "en": "Vordingborg Kommune", "zh": "" },
+      "city":   { "en": "Vordingborg", "zh": "" }
+    },
+    {
+      "grid": "OM89",
+      "center": { "lat": 39.5, "lon": 117 },
+      "country": { "code": "CN", "name": { "en": "People's Republic of China", "zh": "中华人民共和国" } },
+      "admin1": { "en": "Tianjin", "zh": "天津市" },
+      "admin2": { "en": "Tianjin Municipality", "zh": "天津市" },
+      "city":   { "en": "Yangcun", "zh": "" }
+    },
+    {
+      "grid": "BAD",
+      "error": "invalid_grid",
+      "message": "invalid length 3: must be 4, 6, or 8"
+    }
+  ]
+}
+```
+
+**批量错误码**：
+- `HTTP 400 missing_codes` — 未提供 `codes` 参数
+- `HTTP 400 too_many_codes` — 超过 100 个
+
+### 限流
+
+每 IP 每分钟 60 次请求。超出返回 `HTTP 429`：
+
+```json
+{ "error": "rate_limited", "message": "too many requests" }
+```
+
+前端会 toast 提示并禁用输入 5 秒。
+
+### 部署在主机 nginx 后
+
+容器只监听 `127.0.0.1`，需要主机 nginx 反代：
+
+```nginx
+server {
+    listen 443 ssl http2;
+    server_name maidenmap.example.com;
+    # ssl_certificate ...
+
+    location /api/ {
+        proxy_pass         http://127.0.0.1:8180;
+        proxy_set_header   Host              $host;
+        proxy_set_header   X-Real-IP         $remote_addr;
+        proxy_set_header   X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header   X-Forwarded-Proto $scheme;
+    }
+
+    location / {
+        proxy_pass http://127.0.0.1:8081;
+    }
+}
+```
+
+后端 `--trusted-proxies=172.16.0.0/12` 已配置信任 Docker 内部网络；如果主机 nginx 用了别的网段需要同步调整（或传真实 IP 进 `X-Real-IP`）。
+
+## 数据更新
+
+```bash
+# 重新拉取最新 GeoNames + Natural Earth 数据
+docker compose --profile update run --rm update-data
+
+# 数据写入 ./data/（原子写，服务不用重启，但要重启才会重新加载）
+docker compose restart api
+```
+
+数据源：
+- GeoNames cities15000、admin1CodesASCII、admin2Codes、alternateNamesV2（中文名）—— CC-BY
+- Natural Earth `ne_50m_admin_0_countries.geojson` —— Public Domain
+
+## 本地开发
+
+```bash
+# 终端 1：后端
+cd api
+go run ./cmd/server --data-dir=../data
+
+# 终端 2：前端
+cd web
+npm install
+npm run dev       # http://localhost:5173，/api 走 vite proxy 到 :8080
+```
+
+前端 Vite dev server 默认把 `/api/*` 代理到 `http://127.0.0.1:8080`，如果本地后端改了端口，改 `web/vite.config.ts`。
+
+### 测试
+
+```bash
+# 后端
+cd api && go test ./...
+
+# 前端
+cd web && npm run test
+```
+
+## 文档
+
+- [总体设计](docs/superpowers/specs/2026-04-20-maidenmap-design.md)
+- [前端设计](docs/superpowers/specs/2026-04-20-maidenmap-frontend-design.md)
+- [后端 L3 双语扩展 plan](docs/superpowers/plans/2026-04-20-backend-l3-prerequisite.md)
+- [前端 plan](docs/superpowers/plans/2026-04-20-maidenmap-frontend.md)
+
+## 许可
+
+数据来源保持各自许可（GeoNames CC-BY、Natural Earth Public Domain）。代码未指定许可；如需开源请补 LICENSE 文件。
