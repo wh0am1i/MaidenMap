@@ -1,19 +1,17 @@
 import { useEffect, useState } from "react";
-import { Outlet, useNavigate, useRouteError, useSearchParams } from "react-router-dom";
+import { Outlet, useRouteError, useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { Toaster } from "sonner";
 import { TopBar, type TabKey } from "@/components/TopBar";
 
 export default function Root() {
   const [params, setParams] = useSearchParams();
-  const navigate = useNavigate();
   const activeTab = (params.get("tab") === "batch" ? "batch" : "single") as TabKey;
 
   function setTab(t: TabKey) {
     if (t === "single") params.delete("tab");
     else params.set("tab", "batch");
     setParams(params, { replace: true });
-    navigate({ pathname: "/", search: params.toString() });
   }
 
   return (

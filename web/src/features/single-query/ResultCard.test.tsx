@@ -28,10 +28,8 @@ describe("ResultCard", () => {
     expect(screen.getByText(/12.0417/)).toBeInTheDocument();
   });
 
-  it("copies a human-readable summary to clipboard on click", async () => {
+  it("copies a bilingual summary to clipboard on click", async () => {
     const user = userEvent.setup();
-    // Define after setup() because userEvent v14 replaces navigator.clipboard
-    // with its own getter-only stub during setup; defineProperty overrides it.
     const writeText = vi.fn().mockResolvedValue(undefined);
     Object.defineProperty(navigator, "clipboard", {
       value: { writeText },
@@ -42,8 +40,29 @@ describe("ResultCard", () => {
     expect(writeText).toHaveBeenCalledOnce();
     const arg = writeText.mock.calls[0][0] as string;
     expect(arg).toMatch(/JO65ab/);
+    // Both EN and ZH appear where available
     expect(arg).toMatch(/Denmark/);
+    expect(arg).toMatch(/丹麦/);
+    expect(arg).toMatch(/Zealand/);
+    expect(arg).toMatch(/西兰/);
     expect(arg).toMatch(/Vordingborg/);
+    // Smart N/E signs
+    expect(arg).toMatch(/55\.0625°N/);
+    expect(arg).toMatch(/12\.0417°E/);
+  });
+
+  it("formats southern / western coordinates with S / W", async () => {
+    const user = userEvent.setup();
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", {
+      value: { writeText },
+      configurable: true,
+    });
+    wrap(<ResultCard data={{ ...data, center: { lat: -34.5, lon: -58.5 } }} />);
+    await user.click(screen.getByRole("button", { name: /Copy/i }));
+    const arg = writeText.mock.calls[0][0] as string;
+    expect(arg).toMatch(/34\.5°S/);
+    expect(arg).toMatch(/58\.5°W/);
   });
 
   it("renders null country gracefully", () => {

@@ -3,29 +3,21 @@ import { Copy, Share2, Download } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { LocalizedName } from "@/components/LocalizedName";
-import type { GridResponse } from "@/types/api";
+import type { BiName, GridResponse } from "@/types/api";
 
 export function ResultCard({ data }: { data: GridResponse }) {
   const { t } = useTranslation();
 
   async function copy() {
-    const summary = [
-      `Grid: ${data.grid}`,
-      data.country ? `Country: ${data.country.name.en} (${data.country.code})` : "Country: —",
-      `Admin1: ${data.admin1.en || "—"}`,
-      `Admin2: ${data.admin2.en || "—"}`,
-      `City: ${data.city.en || "—"}`,
-      `Center: ${data.center.lat}°N, ${data.center.lon}°E`,
-    ].join("\n");
-    await navigator.clipboard.writeText(summary);
-    toast.success(t("action.copied"));
+    await navigator.clipboard.writeText(buildSummary(data));
+    toast.success(t("action.result_copied"));
   }
 
   async function share() {
     const url = new URL(window.location.href);
     url.searchParams.set("grid", data.grid);
     await navigator.clipboard.writeText(url.toString());
-    toast.success(t("action.copied"));
+    toast.success(t("action.link_copied"));
   }
 
   return (
@@ -56,7 +48,7 @@ export function ResultCard({ data }: { data: GridResponse }) {
         </Row>
         <Row label={t("field.center")}>
           <span className="font-mono">
-            {data.center.lat}°N · {data.center.lon}°E
+            {fmtLat(data.center.lat)} · {fmtLon(data.center.lon)}
           </span>
         </Row>
       </dl>
@@ -73,6 +65,40 @@ export function ResultCard({ data }: { data: GridResponse }) {
       </div>
     </div>
   );
+}
+
+function fmtLat(lat: number): string {
+  return `${Math.abs(lat).toFixed(4).replace(/\.?0+$/, "")}°${lat >= 0 ? "N" : "S"}`;
+}
+
+function fmtLon(lon: number): string {
+  return `${Math.abs(lon).toFixed(4).replace(/\.?0+$/, "")}°${lon >= 0 ? "E" : "W"}`;
+}
+
+// Bilingual summary — always includes both EN + ZH when both are present,
+// so the copied text is useful regardless of the reader's language.
+function buildSummary(d: GridResponse): string {
+  const line = (k: string, v: BiName): string => {
+    const en = v.en.trim();
+    const zh = v.zh.trim();
+    if (!en && !zh) return `${k}: —`;
+    if (en && zh && en !== zh) return `${k}: ${en} / ${zh}`;
+    return `${k}: ${en || zh}`;
+  };
+  const lines = [`Grid: ${d.grid}`];
+  if (d.country) {
+    const en = d.country.name.en;
+    const zh = d.country.name.zh;
+    const name = en && zh && en !== zh ? `${en} / ${zh}` : en || zh || "—";
+    lines.push(`Country: ${name} (${d.country.code})`);
+  } else {
+    lines.push(`Country: —`);
+  }
+  lines.push(line("Admin1", d.admin1));
+  lines.push(line("Admin2", d.admin2));
+  lines.push(line("City", d.city));
+  lines.push(`Center: ${fmtLat(d.center.lat)}, ${fmtLon(d.center.lon)}`);
+  return lines.join("\n");
 }
 
 function Row({ label, children }: { label: string; children: React.ReactNode }) {

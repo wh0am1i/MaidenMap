@@ -66,7 +66,20 @@ export function BatchQueryPanel({
   const okCount = rows.filter((r) => r.kind === "ok").length;
 
   function exportCsv() {
-    const headers = ["grid", "country_code", "country_name_en", "admin1_en", "admin2_en", "city_en", "lat", "lon"];
+    const headers = [
+      "grid",
+      "country_code",
+      "country_name_en",
+      "country_name_zh",
+      "admin1_en",
+      "admin1_zh",
+      "admin2_en",
+      "admin2_zh",
+      "city_en",
+      "city_zh",
+      "lat",
+      "lon",
+    ];
     const data =
       q.data?.results
         .filter((r): r is GridResponse => !isGridError(r))
@@ -74,9 +87,13 @@ export function BatchQueryPanel({
           r.grid,
           r.country?.code ?? "",
           r.country?.name.en ?? "",
+          r.country?.name.zh ?? "",
           r.admin1.en,
+          r.admin1.zh,
           r.admin2.en,
+          r.admin2.zh,
           r.city.en,
+          r.city.zh,
           String(r.center.lat),
           String(r.center.lon),
         ]) ?? [];

@@ -11,8 +11,8 @@ function wrap(node: React.ReactNode) {
 }
 
 const items: HistoryItem[] = [
-  { grid: "JO65", label: "Malmö", countryCode: "SE", at: Date.now() },
-  { grid: "PM95", label: "Tsuru", countryCode: "JP", at: Date.now() - 60_000 },
+  { grid: "JO65", label: { en: "Malmö", zh: "马尔默" }, countryCode: "SE", at: Date.now() },
+  { grid: "PM95", label: { en: "Tsuru", zh: "" }, countryCode: "JP", at: Date.now() - 60_000 },
 ];
 
 describe("History", () => {
@@ -29,11 +29,27 @@ describe("History", () => {
     expect(picked).toEqual(["JO65"]);
   });
 
+  it("picks zh label under zh-CN", async () => {
+    void i18n.changeLanguage("zh-CN");
+    render(<I18nextProvider i18n={i18n}><History items={items} onPick={() => {}} onClear={() => {}} /></I18nextProvider>);
+    expect(screen.getByText("马尔默")).toBeInTheDocument();
+    void i18n.changeLanguage("en"); // reset for other tests
+  });
+
   it("calls onClear when clicking clear", async () => {
     const user = userEvent.setup();
     let cleared = false;
     wrap(<History items={items} onPick={() => {}} onClear={() => (cleared = true)} />);
     await user.click(screen.getByRole("button", { name: /Clear history/i }));
     expect(cleared).toBe(true);
+  });
+
+  it("calls onRemove when clicking row X", async () => {
+    const user = userEvent.setup();
+    const removed: string[] = [];
+    wrap(<History items={items} onPick={() => {}} onRemove={(g) => removed.push(g)} onClear={() => {}} />);
+    const removeBtns = screen.getAllByRole("button", { name: /Remove/i });
+    await user.click(removeBtns[0]);
+    expect(removed).toEqual(["JO65"]);
   });
 });

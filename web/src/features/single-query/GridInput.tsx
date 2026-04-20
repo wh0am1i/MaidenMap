@@ -69,7 +69,7 @@ export function GridInput({
         onKeyDown={(e) => {
           if (e.key === "Enter" && state.status === "ok" && onSubmit) onSubmit(display);
         }}
-        placeholder="JO65ab"
+        placeholder={t("hint.placeholder_example")}
         className={cn("font-mono text-lg tracking-wider", ring)}
       />
       <p

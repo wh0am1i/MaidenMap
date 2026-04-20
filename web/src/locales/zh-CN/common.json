@@ -7,9 +7,9 @@
   },
   "hint": {
     "enter_grid": "请输入梅登海德网格",
-    "valid_n_chars": "有效（{{n}} 位）",
-    "need_more_chars": "再输入 {{n}} 位",
-    "enter_to_lock": "按回车锁定"
+    "placeholder_example": "例如 JO65ab",
+    "valid_n_chars": "有效({{n}} 位)",
+    "need_more_chars": "再输入 {{n}} 位"
   },
   "field": {
     "country": "国家",
@@ -21,23 +21,27 @@
   },
   "action": {
     "copy": "复制",
-    "copied": "已复制",
     "share": "分享链接",
     "export": "导出",
     "export_csv": "CSV",
-    "query_all": "查询全部（{{n}}）",
+    "query_all": "查询全部({{n}})",
     "clear": "清空",
     "fit_view": "适配",
-    "toggle_neighbors": "邻居"
+    "toggle_neighbors": "邻居",
+    "result_copied": "结果已复制",
+    "link_copied": "链接已复制",
+    "remove": "删除",
+    "map_layer": "地图图层"
   },
   "history": {
     "title": "历史记录",
     "empty": "暂无查询记录",
     "count": "{{n}} / 20",
-    "clear_all": "清空历史"
+    "clear_all": "清空历史",
+    "mobile_summary": "历史记录({{n}} 条)"
   },
   "batch": {
-    "paste_hint": "粘贴网格码列表（逗号或换行分隔）",
+    "paste_hint": "粘贴网格码列表(逗号或换行分隔)",
     "results_summary": "{{ok}} / {{total}} 解析成功",
     "invalid_format": "格式错误",
     "no_country": "〈无国家〉"

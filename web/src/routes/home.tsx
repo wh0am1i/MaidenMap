@@ -47,7 +47,9 @@ export default function Home() {
     return out;
   }, [batchQuery.data]);
 
-  const defaultCenter: [number, number] = parsedOk ? [parsedOk.lat, parsedOk.lon] : [30, 10];
+  // No input yet: show a neutral equal-land view centered around 25°N / 20°E
+  // (covers Europe, Africa, Middle East, western Asia — most HAM activity).
+  const defaultCenter: [number, number] = parsedOk ? [parsedOk.lat, parsedOk.lon] : [25, 20];
   const defaultZoom = parsedOk ? (parsedOk.length === 8 ? 12 : parsedOk.length === 6 ? 8 : 4) : 2;
 
   return (

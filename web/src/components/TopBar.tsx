@@ -1,10 +1,21 @@
 import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
-import { Moon, Sun, Monitor } from "lucide-react";
+import { Link } from "react-router-dom";
+import { Moon, Sun, Monitor, Layers } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { qk } from "@/lib/query-keys";
 import { getHealth } from "@/lib/api";
 import { useTheme } from "@/hooks/useTheme";
+import { useMapTile } from "@/hooks/useMapTile";
+import { builtInProviders } from "@/lib/tile-providers";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 export type TabKey = "single" | "batch";
 
@@ -16,7 +27,8 @@ export function TopBar({
   onTabChange: (t: TabKey) => void;
 }) {
   const { t, i18n } = useTranslation();
-  const { theme, setTheme } = useTheme();
+  const { theme, resolved, setTheme } = useTheme();
+  const tile = useMapTile(resolved);
   const health = useQuery({ queryKey: qk.health(), queryFn: getHealth, refetchInterval: 60_000 });
 
   return (
@@ -51,6 +63,36 @@ export function TopBar({
             {(health.data.cities_count / 1000).toFixed(1)}k cities
           </span>
         )}
+        <Link
+          to="/about"
+          className="px-2 py-[2px] border border-border rounded hover:text-[rgb(var(--text))]"
+        >
+          {t("nav.about")}
+        </Link>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              type="button"
+              className="p-[3px] border border-border rounded inline-flex items-center"
+              aria-label={t("action.map_layer")}
+            >
+              <Layers size={14} />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuLabel>{t("action.map_layer")}</DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            {builtInProviders.map((p) => (
+              <DropdownMenuItem
+                key={p.id}
+                onSelect={() => tile.setProviderId(p.id)}
+                className={cn(tile.provider.id === p.id && "font-semibold text-[rgb(var(--ham))]")}
+              >
+                {p.name}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
         <button
           type="button"
           className="px-2 py-[2px] border border-border rounded"

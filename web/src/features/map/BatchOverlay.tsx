@@ -49,7 +49,7 @@ export function BatchOverlay({
             }}
           >
             <Tooltip direction="top" permanent offset={[0, -8]} className="text-[10px]">
-              {p.seq}
+              {`${p.seq} · ${p.grid}`}
             </Tooltip>
           </CircleMarker>
         );

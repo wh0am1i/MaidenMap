@@ -7,9 +7,9 @@
   },
   "hint": {
     "enter_grid": "Enter a Maidenhead grid",
+    "placeholder_example": "e.g. JO65ab",
     "valid_n_chars": "Valid ({{n}}-char)",
-    "need_more_chars": "Need {{n}} more character(s)",
-    "enter_to_lock": "Press Enter to lock"
+    "need_more_chars": "Need {{n}} more character(s)"
   },
   "field": {
     "country": "Country",
@@ -21,20 +21,24 @@
   },
   "action": {
     "copy": "Copy",
-    "copied": "Copied",
     "share": "Share link",
     "export": "Export",
     "export_csv": "CSV",
     "query_all": "Query all ({{n}})",
     "clear": "Clear",
     "fit_view": "Fit",
-    "toggle_neighbors": "Neighbors"
+    "toggle_neighbors": "Neighbors",
+    "result_copied": "Result copied",
+    "link_copied": "Link copied",
+    "remove": "Remove",
+    "map_layer": "Map layer"
   },
   "history": {
     "title": "History",
     "empty": "No recent queries",
     "count": "{{n}} / 20",
-    "clear_all": "Clear history"
+    "clear_all": "Clear history",
+    "mobile_summary": "{{n}} history items"
   },
   "batch": {
     "paste_hint": "Paste grid codes (comma or newline separated)",
