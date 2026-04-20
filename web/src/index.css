@@ -35,10 +35,15 @@
     --success: 63 185 80;
   }
 
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
   body {
     background: rgb(var(--bg));
     color: rgb(var(--text));
-    min-height: 100vh;
   }
 }
 

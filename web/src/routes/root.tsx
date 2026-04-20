@@ -17,10 +17,10 @@ export default function Root() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="h-full flex flex-col">
       <TopBar activeTab={activeTab} onTabChange={setTab} />
       <OfflineBanner />
-      <main className="flex-1 min-h-0">
+      <main className="flex-1 min-h-0 h-full">
         <Outlet />
       </main>
       <Toaster position="top-right" />
