@@ -18,4 +18,8 @@ func TestParseNaturalEarthCountries(t *testing.T) {
 
 	assert.Equal(t, "DE", out.Features[0].Properties["iso_a2"])
 	assert.Equal(t, "Germany", out.Features[0].Properties["name_en"])
+	assert.Equal(t, "德国", out.Features[0].Properties["name_zh"])
+
+	assert.Equal(t, "JP", out.Features[1].Properties["iso_a2"])
+	assert.Equal(t, "日本", out.Features[1].Properties["name_zh"])
 }
