@@ -51,7 +51,7 @@ var chineseAdminSuffixEn = []struct {
 
 // chineseToEn converts a Chinese admin-area name to a best-effort English
 // form: strip the conventional suffix, pinyin-romanize the base, append the
-// translated suffix if we use one. Intended for DataV city / district names
+// translated suffix if we use one. Intended for CN-admin city / district names
 // where no curated English is available.
 //
 // Limits: names whose conventional English is NOT a pinyin transliteration
@@ -91,6 +91,8 @@ var heteronymFixups = []struct{ zh, en string }{
 	{"丽水", "Lishui"},
 	{"莆田", "Putian"},
 	{"莘县", "Shenxian"},
+	// 藏 here is "Zàng" (Tibet), not the default pinyin reading "cáng" (hide).
+	{"藏南", "Zangnan"},
 }
 
 // pinyinJoin converts each character to pinyin and concatenates into a single

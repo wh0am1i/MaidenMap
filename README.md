@@ -218,6 +218,8 @@ server {
 
 ## 数据更新
 
+首次部署 / 每年更新一次：先把天地图 CN-admin 文件放到位（一次性手工，详见下面"CN-admin 数据准备"），然后：
+
 只改数据（不 `git pull`）：
 ```bash
 docker compose --profile update run --rm update-data
@@ -235,13 +237,30 @@ docker compose up -d api       # 注意是 up -d，不是 restart：换容器才
 `update-data` 服务复用 `api` 的镜像（同一个 Dockerfile 和二进制，只是换了 entrypoint），`build` 一次两边都拿到新代码。`run --rm` 每次起新容器所以直接就是最新镜像；但长驻的 `api` 容器 `restart` 只重启进程、不换镜像，必须 `up -d` 才会检测到镜像更新并 recreate。
 
 数据源：
-- **GeoNames** cities15000、admin1CodesASCII、admin2Codes、alternateNamesV2（中文名）—— CC-BY
-- **Natural Earth** `ne_10m_admin_0_countries.geojson` —— Public Domain（含 HK/MO/TW 独立多边形）
-- **阿里云 DataV** 中国行政区划 GeoJSON（`geo.datav.aliyun.com/areas_v3/bound`）—— 公开数据，用作 CN / HK / MO / TW 网格的省-市-区点查询依据
+- **GeoNames** cities15000、admin1CodesASCII、admin2Codes、alternateNamesV2（中文名）—— CC-BY，自动 HTTP 拉取
+- **Natural Earth** `ne_10m_admin_0_countries.geojson` —— Public Domain（含 HK/MO/TW 独立多边形），自动拉取
+- **天地图（国家地理信息公共服务平台）** 中国省/市/县三级行政区划 GeoJSON —— 审图号 **GS(2024)0650**，从 [cloudcenter.tianditu.gov.cn/administrativeDivision](https://cloudcenter.tianditu.gov.cn/administrativeDivision/) **手工下载**（需注册免费账号）。坐标系 CGCS2000（与 WGS84 在 lat/lon 上亚米级差异，等价使用）。用作 CN / HK / MO / TW 网格的省-市-区点查询依据
+- **`data/disputed_patch.geojson`** 手工补丁多边形 —— 仓库内代码，覆盖天地图官方县/市/省 polygon 都未触及的争议区域 gap（例如东部藏南 墨脱县/察隅县 之间）。命中时 admin1 取自 patch 的 parent 省，admin2/city 显示 patch 名（"藏南地区"）
 
-CN 家族查询走 DataV 的点-面查询（省 → 区县），其它地区继续用 GeoNames 最近城市的 admin 编码。DataV 抓取约 400 次 HTTP 调用（国家 → 省 → 市），跑一次 1～2 分钟。文件落盘为 `data/datav.geojson`；如果缺失，API 会回退到 GeoNames 路径。
+### CN-admin 数据准备（首次 + 每年一次）
 
-- **关掉 DataV**：`--datav-url=""`（或 `DATAV_URL=""`），中国网格的 admin 会退回 GeoNames 最近邻，精度会明显下降（例如 PM00ad 会错判成 富阳区 而不是 西湖区）。
+天地图数据在 cloudcenter 登录后才能下载，**无法自动抓取**。操作流程：
+
+1. 注册 [天地图账号](https://www.tianditu.gov.cn/)（免费）
+2. 进入 [cloudcenter administrativeDivision](https://cloudcenter.tianditu.gov.cn/administrativeDivision/)，下载 `中国_省.geojson` / `中国_市.geojson` / `中国_县.geojson` 三个文件
+3. 把它们丢进仓库根目录的 `tianditu/` 目录里（文件名不要改，必须中文）：
+   ```
+   tianditu/
+   ├── 中国_省.geojson
+   ├── 中国_市.geojson
+   └── 中国_县.geojson
+   ```
+4. 跑 `docker compose --profile update run --rm update-data` —— 它会读 `tianditu/` 加载三级 polygon、合并 `data/disputed_patch.geojson` 补丁、生成 `data/cn_admin.geojson`
+
+CN 家族查询走 cn_admin 的 **县 → 市 → 省 → patch** 四级 point-in-polygon。其它地区继续用 GeoNames 最近城市的 admin 编码。如果 `tianditu/` 是空的，`update-data` 会跳过 cn_admin 步骤打印一条 info；API 仍能跑，但 CN 网格会退回 GeoNames 最近邻、精度明显下降（例如 PM00ad 会错判成 富阳区 而不是 西湖区），并失去藏南/阿克赛钦的归属修正。
+
+- **彻底跳过 CN-admin**：把 `--tianditu-dir` 留空（或 `TIANDITU_DIR=""`）即可。
+- **更新频次**：天地图大约一年一发；行政区划本身变化也慢，发新版后下来覆盖 `tianditu/` 里旧文件、再跑一遍 update-data 就行。
 
 ## 本地开发
 
@@ -275,4 +294,6 @@ cd web && npm run test
 数据层保持各自原有许可：
 - GeoNames — [CC-BY 4.0](https://creativecommons.org/licenses/by/4.0/)
 - Natural Earth — Public Domain
+- 天地图行政区划数据 —— 审图号 **GS(2024)0650**，由操作者自行从 [cloudcenter.tianditu.gov.cn](https://cloudcenter.tianditu.gov.cn/administrativeDivision/) 下载，许可条款以天地图官方为准。**仓库不再分发原始天地图数据**；只包含手工绘制的 `data/disputed_patch.geojson` 补丁。
+- `data/disputed_patch.geojson` —— 本项目手工绘制，跟代码同 MIT 许可
 - DataV GeoAtlas — 阿里云开放数据（公开可用）

@@ -1,6 +1,15 @@
 # Runtime data
 /data/*
 !/data/.gitkeep
+# Hand-curated fallback polygons for disputed-territory gaps — source code,
+# not runtime data, so this one is checked in.
+!/data/disputed_patch.geojson
+
+# Tianditu CN-admin source files — operators download manually (审图号
+# GS(2024)0650, license keeps them per-operator). Directory tracked via
+# .gitkeep so the docker volume mount path exists; files inside are not.
+/tianditu/*
+!/tianditu/.gitkeep
 
 # OS
 .DS_Store

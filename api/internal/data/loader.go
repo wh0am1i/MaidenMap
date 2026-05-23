@@ -16,7 +16,7 @@ import (
 type Dataset struct {
 	Countries       *geojson.FeatureCollection
 	CountriesByCode map[string]geocode.Country // ISO alpha-2 → country struct, for code-based fallback
-	DataV           *geocode.DataVIndex        // Chinese admin-polygon lookup (nil if datav.geojson missing)
+	CNAdmin         *geocode.CNAdminIndex      // Chinese admin-polygon lookup (nil if cn_admin.geojson missing)
 	Cities          []geocode.City
 	KDTree          *geocode.KDTree
 	Admin1          map[string]geocode.AdminEntry // "US.CA" -> {En, Zh}
@@ -66,17 +66,17 @@ func Load(dir string) (*Dataset, error) {
 		byCode[code] = geocode.Country{Code: code, Name: nameEn, NameZh: nameZh}
 	}
 
-	// DataV is optional — if the file isn't there the system still works,
-	// it just falls back to GeoNames admin for China queries.
-	datav, datavMtime, _ := loadDataV(filepath.Join(dir, "datav.geojson"))
-	if datavMtime.After(updated) {
-		updated = datavMtime
+	// CN-admin index is optional — if the file isn't there the system still
+	// works, it just falls back to GeoNames admin for China queries.
+	cnAdmin, cnAdminMtime, _ := loadCNAdmin(filepath.Join(dir, "cn_admin.geojson"))
+	if cnAdminMtime.After(updated) {
+		updated = cnAdminMtime
 	}
 
 	return &Dataset{
 		Countries:       countries,
 		CountriesByCode: byCode,
-		DataV:           datav,
+		CNAdmin:         cnAdmin,
 		Cities:          cities,
 		KDTree:          geocode.BuildKDTree(cities),
 		Admin1:          admin.Admin1,
@@ -85,7 +85,7 @@ func Load(dir string) (*Dataset, error) {
 	}, nil
 }
 
-func loadDataV(path string) (*geocode.DataVIndex, time.Time, error) {
+func loadCNAdmin(path string) (*geocode.CNAdminIndex, time.Time, error) {
 	b, err := os.ReadFile(path)
 	if err != nil {
 		return nil, time.Time{}, err
@@ -95,7 +95,7 @@ func loadDataV(path string) (*geocode.DataVIndex, time.Time, error) {
 		return nil, time.Time{}, err
 	}
 	info, _ := os.Stat(path)
-	return geocode.BuildDataVIndex(fc), info.ModTime(), nil
+	return geocode.BuildCNAdminIndex(fc), info.ModTime(), nil
 }
 
 func loadCountries(path string) (*geojson.FeatureCollection, time.Time, error) {

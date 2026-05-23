@@ -1,0 +1,26 @@
+{
+  "type": "FeatureCollection",
+  "_comment": "Hand-curated fallback polygons for disputed-territory gaps that the Tianditu county/city/province data (审图号 GS(2024)0650) leaves uncovered even though the area is inside China per the official claim line. Loaded by update-data as the lowest-priority tier — real Tianditu polygons win wherever they cover.",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "adcode": 549999,
+        "name": "藏南地区",
+        "level": "patch",
+        "parent": 540000,
+        "_note": "Covers the eastern 藏南 gap (between 墨脱县 east edge and 察隅县 west edge, south of LAC). Generous rectangle; overlaps with real 西藏 admin polygons, which take priority. parent=540000=西藏自治区."
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [91.5, 27.0],
+          [97.0, 27.0],
+          [97.0, 29.5],
+          [91.5, 29.5],
+          [91.5, 27.0]
+        ]]
+      }
+    }
+  ]
+}

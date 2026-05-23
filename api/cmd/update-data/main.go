@@ -1,5 +1,6 @@
-// Command maidenmap-update-data fetches raw GeoNames + Natural Earth + DataV
-// data and writes the consumed data files atomically.
+// Command maidenmap-update-data fetches raw GeoNames + Natural Earth data
+// and assembles the CN-admin index from operator-supplied Tianditu files,
+// writing the consumed data files atomically.
 package main
 
 import (
@@ -26,10 +27,6 @@ const (
 
 	minCities    = 10000
 	minCountries = 150
-
-	// DataV drill concurrency — one HTTP call per province, then one per
-	// mainland city. 8 keeps the Alibaba endpoint happy.
-	dataVConcurrency = 8
 )
 
 func main() {
@@ -39,7 +36,8 @@ func main() {
 	admin2URL := flag.String("admin2-url", envDefault("ADMIN2_URL", defaultAdmin2URL), "")
 	countriesURL := flag.String("countries-url", envDefault("COUNTRIES_URL", defaultCountriesURL), "")
 	altNamesURL := flag.String("alt-names-url", envDefault("ALT_NAMES_URL", defaultAlternateNamesURL), "")
-	dataVURL := flag.String("datav-url", envDefault("DATAV_URL", updatedata.DefaultDataVBaseURL), "DataV base URL; empty disables DataV fetch")
+	tiandituDir := flag.String("tianditu-dir", envDefault("TIANDITU_DIR", ""), "Directory containing Tianditu 中国_省/市/县.geojson; empty disables CN-admin assembly")
+	patchPath := flag.String("disputed-patch", envDefault("DISPUTED_PATCH", "./data/disputed_patch.geojson"), "Optional hand-curated polygon file for disputed-territory gaps; empty disables patch")
 	flag.Parse()
 
 	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, nil)))
@@ -211,22 +209,27 @@ func main() {
 		fatal("write cities.bin", err)
 	}
 
-	// DataV fetch runs last because it's the slowest step (~400 HTTP calls).
-	// Emit to datav.geojson as a slim FeatureCollection — the API loads it
-	// optionally and falls back to GeoNames when absent.
-	if *dataVURL != "" {
-		slog.Info("download", "what", "datav")
-		nodes, err := updatedata.FetchDataVChina(*dataVURL, dataVConcurrency)
+	// CN-admin assembly: read operator-supplied Tianditu files (3 levels:
+	// 省/市/县) plus the optional disputed-territory patch, emit a slim
+	// FeatureCollection to cn_admin.geojson. The API loads this optionally
+	// and falls back to GeoNames-only admin when absent. The Tianditu data
+	// is NOT fetched automatically — it lives behind a login wall at
+	// cloudcenter.tianditu.gov.cn; operators download once per year and
+	// place the three files in a directory pointed at by --tianditu-dir.
+	if *tiandituDir != "" {
+		slog.Info("load", "what", "tianditu", "dir", *tiandituDir, "patch", *patchPath)
+		nodes, err := updatedata.LoadTianditu(*tiandituDir, *patchPath)
 		if err != nil {
-			slog.Warn("datav fetch failed; skipping", "err", err)
-		} else {
-			if err := atomicWriteFunc(filepath.Join(*dataDir, "datav.geojson"), func(w io.Writer) error {
-				return updatedata.EncodeDataVNodes(w, nodes)
-			}); err != nil {
-				fatal("write datav.geojson", err)
-			}
-			slog.Info("datav written", "nodes", len(nodes))
+			fatal("load tianditu", err)
 		}
+		if err := atomicWriteFunc(filepath.Join(*dataDir, "cn_admin.geojson"), func(w io.Writer) error {
+			return updatedata.EncodeCNAdmin(w, nodes)
+		}); err != nil {
+			fatal("write cn_admin.geojson", err)
+		}
+		slog.Info("cn_admin written", "nodes", len(nodes))
+	} else {
+		slog.Info("tianditu-dir empty; skipping CN-admin index assembly")
 	}
 
 	slog.Info("update complete", "data_dir", *dataDir, "cities_with_zh", countNonEmptyZh(cities))

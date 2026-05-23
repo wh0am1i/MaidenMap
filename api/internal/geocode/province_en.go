@@ -1,10 +1,11 @@
 package geocode
 
-// provinceEnByZh maps a DataV Chinese province name to a conventional English
-// name. DataV ships no English labels, and GeoNames admin1 codes (e.g. CN.02)
-// are not ADCodes, so we can't cross-walk — this static table keeps bilingual
-// output intact for the CN family. Covers mainland provinces,
-// autonomous regions, directly-administered municipalities, plus SARs and TW.
+// provinceEnByZh maps a Chinese province name (as it appears in the CN-admin
+// dataset) to a conventional English name. The CN-admin upstream ships no
+// English labels, and GeoNames admin1 codes (e.g. CN.02) are not ADCodes, so
+// we can't cross-walk — this static table keeps bilingual output intact for
+// the CN family. Covers mainland provinces, autonomous regions, directly-
+// administered municipalities, plus SARs and TW.
 var provinceEnByZh = map[string]string{
 	// Directly-administered municipalities.
 	"北京市": "Beijing",

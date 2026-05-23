@@ -30,10 +30,21 @@ services:
   # just a different entrypoint. Run `docker compose build api` (or plain
   # `docker compose build`) first; then `compose run update-data` picks up
   # whatever was built for api.
+  #
+  # The Tianditu CN-admin files (中国_省/市/县.geojson) live behind a login wall
+  # at cloudcenter.tianditu.gov.cn and CANNOT be fetched automatically. Operators
+  # download once per year (审图号 GS(2024)0650) and drop them into ./tianditu/.
+  # If the directory is empty, the CN-admin index step is skipped; the API still
+  # works but loses 藏南 / 阿克赛钦 correction and degrades to GeoNames-only
+  # admin for CN-family queries.
   update-data:
     image: maidenmap-api:latest
     entrypoint: /usr/local/bin/maidenmap-update-data
-    command: --data-dir=/data
+    command: >
+      --data-dir=/data
+      --tianditu-dir=/tianditu
+      --disputed-patch=/data/disputed_patch.geojson
     volumes:
       - ./data:/data
+      - ./tianditu:/tianditu:ro
     profiles: ["update"]
